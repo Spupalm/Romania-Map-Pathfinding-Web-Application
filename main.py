@@ -150,6 +150,62 @@ def DFS(start, goal):
                 if next_city not in dfs_visited:
                     dfs_frontier.append(next_city)
                     dfs_parent[next_city] = city
+def greedy_best_first_search(start, goal):
+    # Priority Queue stores tuples of: (h_score, current_node, path, g_score)
+    timer_start = time.perf_counter()
+    open_set = []
+    
+    # Calculate initial heuristic h(start)
+    h_start = get_heuristic(start, goal)
+    heapq.heappush(open_set, (h_start, start, [start], 0))
+    
+    visited = set()
+    step = 1
+    
+    print(sep)
+    print(f"=== Starting Greedy Best-First Search from {start} to {goal} ===\n")
+    
+    while open_set:
+        # Pop node with the lowest h(n) value
+        h, current, path, g = heapq.heappop(open_set)
+        
+        if current in visited:
+            continue
+            
+        print(f"Iteration {step}:")
+        print(f"  -> Expanding Node: [ {current} ]")
+        print(f"     h({current}) = {h:.1f}, path cost so far g({current}) = {g}")
+        
+        # Goal check
+        if current == goal:
+            timer_end = time.perf_counter()
+            time_elapsed = timer_end - timer_start
+            print(f"\n==========================================")
+            print(f"Greedy Best-First Search Completed!")
+            print(f"Path: {' -> '.join(path)}")
+            print(f"Total Cost: {g}")
+            print(f"Time elapsed: {time_elapsed:.8f} seconds")
+            print(f"==========================================")
+            return path, g
+            
+        visited.add(current)
+        
+        # Explore neighbors
+        print("     Possible Next Neighbor Nodes:")
+        for neighbor, edge_cost in romania_map[current].items():
+            if neighbor in visited:
+                continue
+                
+            tentative_g = g + edge_cost
+            h_neighbor = get_heuristic(neighbor, goal)
+            heapq.heappush(open_set, (h_neighbor, neighbor, path + [neighbor], tentative_g))
+            print(f"       - {neighbor}: h = {h_neighbor:.1f} (edge cost = {edge_cost})")
+                
+        print("-" * 50)
+        step += 1
+
+    print("No valid path found to the destination.")
+    return None, float('inf')
 
 def a_star_search(start, goal):
     # Priority Queue stores tuples of: (f_score, current_node, path, g_score)
@@ -186,7 +242,7 @@ def a_star_search(start, goal):
             timer_end = time.perf_counter()
             time_elapsed = timer_end - timer_start
             print(f"\n==========================================")
-            print(f"Optimal Path Found!")
+            print(f"A* Search Completed!")
             print(f"Path: {' -> '.join(path)}")
             print(f"Total Cost: {g}")
             print(f"Time elapsed: {time_elapsed:.8f} seconds")
@@ -216,4 +272,5 @@ def a_star_search(start, goal):
     return None, float('inf')
 BFS(start_city, goal_city)
 DFS(start_city, goal_city)
+greedy_best_first_search(start_city, goal_city)
 a_star_search(start_city, goal_city)
