@@ -57,7 +57,38 @@ if goal_city not in romania_map:
     print("Invalid destination city")
     exit()
 
-sep = "====================="
+sep = "="*20
+
+def chebyshev_distance(current, goal):
+    """
+    Calculate Chebyshev Distance between two points
+    8-directional movement
+    
+    Formula: max(|x1-x2|, |y1-y2|)
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return max(dx, dy)
+
+def manhattan_distance(current, goal):
+    """
+    Calculate Manhattan Distance between two points
+    4-directional movement (no diagonals)
+    
+    Formula: |x1-x2| + |y1-y2|
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return dx + dy
+
 def get_heuristic(city, goal_city="Bucharest"):
     x1, y1 = nodes_coordinates[city]
     x2, y2 = nodes_coordinates[goal_city]
@@ -150,6 +181,7 @@ def DFS(start, goal):
                 if next_city not in dfs_visited:
                     dfs_frontier.append(next_city)
                     dfs_parent[next_city] = city
+
 def greedy_best_first_search(start, goal):
     # Priority Queue stores tuples of: (h_score, current_node, path, g_score)
     timer_start = time.perf_counter()
@@ -272,5 +304,5 @@ def a_star_search(start, goal):
     return None, float('inf')
 BFS(start_city, goal_city)
 DFS(start_city, goal_city)
-greedy_best_first_search(start_city, goal_city)
-a_star_search(start_city, goal_city)
+#greedy_best_first_search(start_city, goal_city)
+#a_star_search(start_city, goal_city)
