@@ -89,7 +89,7 @@ def manhattan_distance(current, goal):
     
     return dx + dy
 
-def get_heuristic(city, goal_city="Bucharest"):
+def get_heuristic(city, goal_city):
     x1, y1 = nodes_coordinates[city]
     x2, y2 = nodes_coordinates[goal_city]
     # สูตรระยะทางเส้นตรง: sqrt((x2 - x1)^2 + (y2 - y1)^2)
@@ -98,11 +98,10 @@ def get_heuristic(city, goal_city="Bucharest"):
 def BFS(start, goal):
     timer_start = time.perf_counter()
     bfs_frontier = [start]
-    bfs_visited = set(start)
+    bfs_visited = {start}
     bfs_parent = {}
     while bfs_frontier:
         city = bfs_frontier.pop(0)
-        bfs_visited.add(city)
 
         if city == goal:
             cost = 0
@@ -136,17 +135,17 @@ def BFS(start, goal):
 
             for next_city in romania_map[city]:
                 if next_city not in bfs_visited:
+                    bfs_visited.add(next_city)
                     bfs_frontier.append(next_city)
                     bfs_parent[next_city] = city
 
 def DFS(start, goal):
     timer_start = time.perf_counter()
     dfs_frontier = [start]
-    dfs_visited = set(start)
+    dfs_visited = {start}
     dfs_parent = {}
     while dfs_frontier:
         city = dfs_frontier.pop()
-        dfs_visited.add(city)
 
         if city == goal:
             cost = 0
@@ -179,6 +178,7 @@ def DFS(start, goal):
 
             for next_city in romania_map[city]:
                 if next_city not in dfs_visited:
+                    dfs_visited.add(next_city)
                     dfs_frontier.append(next_city)
                     dfs_parent[next_city] = city
 
