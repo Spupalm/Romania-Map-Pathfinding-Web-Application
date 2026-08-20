@@ -51,10 +51,48 @@ nodes_coordinates = {
 
 node_degrees = {node: len(neighbors) for node, neighbors in romania_map.items()}
 
-def get_heuristic(city, goal_city):
+def get_heuristic(city, goal_city="Bucharest"):
     x1, y1 = nodes_coordinates[city]
     x2, y2 = nodes_coordinates[goal_city]
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+def get_chebyshev_heuristic(city, goal):
+    """Returns Chebyshev distance from city to goal"""
+    # Get coordinates for both cities
+    city_coords = nodes_coordinates[city]
+    goal_coords = nodes_coordinates[goal]
+    # Pass coordinates to chebyshev_distance
+    return chebyshev_distance(city_coords, goal_coords)
+
+def chebyshev_distance(current, goal):
+    """
+    Calculate Chebyshev Distance between two points
+    8-directional movement
+    
+    Formula: max(|x1-x2|, |y1-y2|)
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return max(dx, dy)
+
+def manhattan_distance(current, goal):
+    """
+    Calculate Manhattan Distance between two points
+    4-directional movement (no diagonals)
+    
+    Formula: |x1-x2| + |y1-y2|
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return dx + dy
 
 # ==================== SEPARATED SEARCH FUNCTIONS ====================
 
@@ -182,6 +220,80 @@ def a_star_search(start, goal):
                 heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
 
     return [], float('inf'), steps
+
+def a_star_search_chebyshev(start_city, goal_city):
+    """
+    A* pathfinding using Chebyshev Distance as the heuristic.
+    
+    Parameters:
+    - start_city: string (e.g., 'Arad')
+    - goal_city: string (e.g., 'Bucharest')
+    
+    Returns:
+    - path: list of cities from start to goal (or empty list if no path)
+    - total_cost: total road distance from start to goal
+    - explored: list of cities explored during search
+    """
+    
+    # Priority queue: (priority, counter, city, path, cost_so_far)
+    # priority = cost_so_far + heuristic (f_score)
+    frontier = []
+    counter = 0
+    
+    # Initial heuristic value
+    start_heuristic = get_chebyshev_heuristic(start_city, goal_city)
+    heapq.heappush(frontier, (start_heuristic, counter, start_city, [start_city], 0))
+    counter += 1
+    
+    # Track explored cities
+    explored = []
+    visited = set()
+    
+    # Track best known cost to reach each city
+    best_cost = {city: float('inf') for city in romania_map}
+    best_cost[start_city] = 0
+    
+    # A* search loop
+    while frontier:
+        # Pop city with lowest priority (f_score = cost_so_far + heuristic)
+        priority, _, current_city, path, cost_so_far = heapq.heappop(frontier)
+        
+        # Skip if already explored
+        if current_city in visited:
+            continue
+        
+        # Mark as explored
+        visited.add(current_city)
+        explored.append(current_city)
+        
+        # Goal check
+        if current_city == goal_city:
+            return path, cost_so_far, explored
+        
+        # Explore neighbors
+        for neighbor, road_distance in romania_map[current_city].items():
+            if neighbor in visited:
+                continue
+            
+            # Calculate new cost to reach neighbor through current city
+            new_cost = cost_so_far + road_distance
+            
+            # Only update if this path is better
+            if new_cost < best_cost[neighbor]:
+                best_cost[neighbor] = new_cost
+                
+                # Calculate heuristic for neighbor
+                neighbor_heuristic = get_chebyshev_heuristic(neighbor, goal_city)
+                
+                # Calculate priority (f_score = g_score + h_score)
+                neighbor_priority = new_cost + neighbor_heuristic
+                
+                # Add to frontier with updated path
+                heapq.heappush(frontier, (neighbor_priority, counter, neighbor, path + [neighbor], new_cost))
+                counter += 1
+    
+    # No path found
+    return [], float('inf'), explored
 
 def hub_and_spoke_search(start, goal):
     open_set = []
