@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -57,6 +56,167 @@ def get_heuristic(city, goal_city):
     x2, y2 = nodes_coordinates[goal_city]
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
+# ==================== SEPARATED SEARCH FUNCTIONS ====================
+
+def BFS(start, goal):
+    bfs_frontier = [start]
+    bfs_visited = {start}
+    bfs_parent = {}
+    steps = []
+
+    while bfs_frontier:
+        city = bfs_frontier.pop(0)
+        steps.append(city)
+
+        if city == goal:
+            cost = 0
+            path = []
+            current = goal
+
+            while current != start:
+                path.append(current)
+                previous = bfs_parent[current]
+                cost += romania_map[current][previous]
+                current = previous
+
+            path.append(start)
+            path.reverse()
+            return path, cost, steps
+        else:
+            for next_city in romania_map[city]:
+                if next_city not in bfs_visited:
+                    bfs_visited.add(next_city)
+                    bfs_frontier.append(next_city)
+                    bfs_parent[next_city] = city
+
+    return [], float('inf'), steps
+
+def DFS(start, goal):
+    dfs_frontier = [start]
+    dfs_visited = set()
+    dfs_parent = {}
+    steps = []
+
+    while dfs_frontier:
+        city = dfs_frontier.pop()
+        if city in dfs_visited:
+            continue
+        dfs_visited.add(city)
+        steps.append(city)
+
+        if city == goal:
+            cost = 0
+            path = []
+            current = goal
+
+            while current != start:
+                path.append(current)
+                previous = dfs_parent[current]
+                cost += romania_map[current][previous]
+                current = previous
+
+            path.append(start)
+            path.reverse()
+            return path, cost, steps
+        else:
+            for next_city in romania_map[city]:
+                if next_city not in dfs_visited:
+                    dfs_frontier.append(next_city)
+                    dfs_parent[next_city] = city
+
+    return [], float('inf'), steps
+
+def greedy_best_first_search(start, goal):
+    open_set = []
+    h_start = get_heuristic(start, goal)
+    heapq.heappush(open_set, (h_start, start, [start], 0))
+    visited = set()
+    steps = []
+
+    while open_set:
+        h, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
+            continue
+        visited.add(curr)
+        steps.append(curr)
+
+        if curr == goal:
+            return path, g, steps
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
+                continue
+            tentative_g = g + edge_cost
+            h_neighbor = get_heuristic(nxt, goal)
+            heapq.heappush(open_set, (h_neighbor, nxt, path + [nxt], tentative_g))
+
+    return [], float('inf'), steps
+
+def a_star_search(start, goal):
+    open_set = []
+    h_start = get_heuristic(start, goal)
+    heapq.heappush(open_set, (h_start, start, [start], 0))
+    visited = set()
+    g_scores = {c: float('inf') for c in romania_map}
+    g_scores[start] = 0
+    steps = []
+
+    while open_set:
+        f, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
+            continue
+        visited.add(curr)
+        steps.append(curr)
+
+        if curr == goal:
+            return path, g, steps
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
+                continue
+            tentative_g = g + edge_cost
+            if tentative_g < g_scores[nxt]:
+                g_scores[nxt] = tentative_g
+                h_val = get_heuristic(nxt, goal)
+                f_val = tentative_g + h_val
+                heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
+
+    return [], float('inf'), steps
+
+def hub_and_spoke_search(start, goal):
+    open_set = []
+    h_start = get_heuristic(start, goal)
+    heapq.heappush(open_set, (h_start, start, [start], 0))
+    visited = set()
+    g_scores = {c: float('inf') for c in romania_map}
+    g_scores[start] = 0
+    steps = []
+
+    while open_set:
+        f, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
+            continue
+        visited.add(curr)
+        steps.append(curr)
+
+        if curr == goal:
+            return path, g, steps
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
+                continue
+            tentative_g = g + edge_cost
+            if tentative_g < g_scores[nxt]:
+                g_scores[nxt] = tentative_g
+                h_val = get_heuristic(nxt, goal)
+                # Custom Heuristic using Node Degree
+                f_val = tentative_g + h_val - (node_degrees[nxt] * 20)
+                heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
+
+    return [], float('inf'), steps
+
+# ==================== FASTAPI API ROUTE ====================
+
 class SearchRequest(BaseModel):
     start: str
     goal: str
@@ -70,98 +230,19 @@ def run_search(req: SearchRequest):
         return {"error": "Invalid start or goal city"}
 
     timer_start = time.perf_counter()
-    steps = []
-    final_path = []
-    cost = 0
 
     if algo == "BFS":
-        frontier = [start]
-        visited = set([start])
-        parent = {}
-        while frontier:
-            curr = frontier.pop(0)
-            steps.append(curr)
-            if curr == goal:
-                break
-            for nxt in romania_map[curr]:
-                if nxt not in visited:
-                    visited.add(nxt)
-                    frontier.append(nxt)
-                    parent[nxt] = curr
-        
-        # reconstruct path
-        curr = goal
-        while curr != start:
-            final_path.append(curr)
-            prev = parent[curr]
-            cost += romania_map[curr][prev]
-            curr = prev
-        final_path.append(start)
-        final_path.reverse()
-
+        final_path, cost, steps = BFS(start, goal)
     elif algo == "DFS":
-        frontier = [start]
-        visited = set()
-        parent = {}
-        while frontier:
-            curr = frontier.pop()
-            if curr in visited:
-                continue
-            visited.add(curr)
-            steps.append(curr)
-            if curr == goal:
-                break
-            for nxt in romania_map[curr]:
-                if nxt not in visited:
-                    frontier.append(nxt)
-                    parent[nxt] = curr
-        
-        curr = goal
-        while curr != start:
-            final_path.append(curr)
-            prev = parent[curr]
-            cost += romania_map[curr][prev]
-            curr = prev
-        final_path.append(start)
-        final_path.reverse()
-
-    elif algo in ["Greedy", "A*", "HubAndSpoke"]:
-        open_set = []
-        h_start = get_heuristic(start, goal)
-        heapq.heappush(open_set, (h_start, start, [start], 0))
-        visited = set()
-        g_scores = {c: float('inf') for c in romania_map}
-        g_scores[start] = 0
-
-        while open_set:
-            f, curr, path, g = heapq.heappop(open_set)
-            if curr in visited:
-                continue
-            visited.add(curr)
-            steps.append(curr)
-
-            if curr == goal:
-                final_path = path
-                cost = g
-                break
-
-            for nxt, edge_cost in romania_map[curr].items():
-                if nxt in visited:
-                    continue
-                tentative_g = g + edge_cost
-                h_val = get_heuristic(nxt, goal)
-
-                if algo == "Greedy":
-                    f_val = h_val
-                elif algo == "A*":
-                    f_val = tentative_g + h_val
-                elif algo == "HubAndSpoke":
-                    # Custom Heuristic using Node Degree
-                    f_val = tentative_g + h_val - (node_degrees[nxt] * 20)
-
-                if algo == "Greedy" or tentative_g < g_scores[nxt]:
-                    g_scores[nxt] = tentative_g
-                    heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
+        final_path, cost, steps = DFS(start, goal)
+    elif algo == "Greedy":
+        final_path, cost, steps = greedy_best_first_search(start, goal)
+    elif algo == "A*":
+        final_path, cost, steps = a_star_search(start, goal)
+    elif algo == "HubAndSpoke":
+        final_path, cost, steps = hub_and_spoke_search(start, goal)
+    else:
+        return {"error": "Invalid algorithm name"}
 
     time_elapsed = time.perf_counter() - timer_start
 
