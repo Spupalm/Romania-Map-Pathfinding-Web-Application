@@ -51,7 +51,7 @@ nodes_coordinates = {
 
 node_degrees = {node: len(neighbors) for node, neighbors in romania_map.items()}
 
-def get_heuristic(city, goal_city="Bucharest"):
+def get_heuristic(city, goal_city):
     x1, y1 = nodes_coordinates[city]
     x2, y2 = nodes_coordinates[goal_city]
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
@@ -353,6 +353,8 @@ def run_search(req: SearchRequest):
         final_path, cost, steps = a_star_search(start, goal)
     elif algo == "HubAndSpoke":
         final_path, cost, steps = hub_and_spoke_search(start, goal)
+    elif algo == "Cheby_A_Star": #TODO Ask Prof first if HubAndSpoke works then no need for this, I can't find Frontend!? -Kwan
+        final_path, cost, steps = a_star_search_chebyshev(start, goal)
     else:
         return {"error": "Invalid algorithm name"}
 
