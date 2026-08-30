@@ -74,6 +74,14 @@ def manhattan_distance(current, goal):
     dy = abs(y1 - y2)
     return dx + dy
 
+def get_manhattan_heuristic(city, goal):
+    """Returns Manhattan distance from city to goal"""
+    # Get coordinates for both cities
+    city_coords = nodes_coordinates[city]
+    goal_coords = nodes_coordinates[goal]
+    # Pass coordinates to manhattan_distance
+    return manhattan_distance(city_coords, goal_coords)
+
 # ==================== SEPARATED SEARCH FUNCTIONS ====================
 
 def BFS(start, goal):
@@ -285,11 +293,59 @@ def a_star_search(start, goal):
 
     return [], float('inf'), steps, steps_log
 
-def a_star_search_chebyshev(start_city, goal_city):
+def a_star_search_adaptive(start_city, goal_city): # Nah, I'd adapt - "Mahoraga"
+    """
+    A* pathfinding using dynamic adaptive weighting of Chebyshev and Manhattan.
+    
+    The weights adapt based on the geometry ratio r = MD/CD:
+    - When r is low (straight paths): Uses more MD (more informed)
+    - When r is high (diagonal paths): Uses more CD (safer)
+    
+    Returns:
+    - path: list of cities from start to goal
+    - cost: total path cost
+    - explored: list of cities explored
+    - steps_log: step-by-step exploration data for frontend
+    """
+    
+    # ==========================================
+    # CUSTOM HEURISTIC: Dynamic Adaptive CD + MD
+    # ==========================================
+    
+    def get_heuristic_with_details(city, goal):
+        """
+        Returns: custom_h, cd, md, alpha, beta
+        - alpha: weight for CD
+        - beta: weight for MD
+        """
+        cd = get_chebyshev_heuristic(city, goal)
+        md = get_manhattan_heuristic(city, goal)
+        
+        if cd == 0:
+            return 0, 0, 0, 1.0, 0.0
+        
+        r = md / cd
+        
+        if r <= 1.0:
+            beta = 1.0
+            alpha = 0.0
+        else:
+            beta = 1.0 / (98.0 * (r - 1.0))
+            beta = min(beta, 1.0)
+            alpha = 1.0 - beta
+        
+        custom = alpha * cd + beta * md
+        return custom, cd, md, alpha, beta
+    
+    # ==========================================
+    # INITIALIZATION
+    # ==========================================
+    
     frontier = []
     counter = 0
-    start_heuristic = get_chebyshev_heuristic(start_city, goal_city)
-    heapq.heappush(frontier, (start_heuristic, counter, start_city, [start_city], 0))
+    
+    h_start, cd_start, md_start, alpha_start, beta_start = get_heuristic_with_details(start_city, goal_city)
+    heapq.heappush(frontier, (h_start, counter, start_city, [start_city], 0))
     counter += 1
     
     explored = []
@@ -297,7 +353,11 @@ def a_star_search_chebyshev(start_city, goal_city):
     best_cost = {city: float('inf') for city in romania_map}
     best_cost[start_city] = 0
     steps_log = []
-
+    
+    # ==========================================
+    # A* LOOP
+    # ==========================================
+    
     while frontier:
         priority, _, current_city, path, cost_so_far = heapq.heappop(frontier)
         
@@ -306,13 +366,19 @@ def a_star_search_chebyshev(start_city, goal_city):
         
         visited.add(current_city)
         explored.append(current_city)
-
+        
+        h_current, cd_current, md_current, alpha_current, beta_current = get_heuristic_with_details(current_city, goal_city)
+        
         step_info = {
             "step": len(explored),
             "expanded_node": current_city,
             "g": round(cost_so_far, 1),
-            "h": round(get_chebyshev_heuristic(current_city, goal_city), 1),
+            "h": round(h_current, 1),
             "f": round(priority, 1),
+            "cd": round(cd_current, 1),
+            "md": round(md_current, 1),
+            "alpha": round(alpha_current * 100, 1),
+            "beta": round(beta_current * 100, 1),
             "current_path": path,
             "neighbors": []
         }
@@ -328,17 +394,21 @@ def a_star_search_chebyshev(start_city, goal_city):
             new_cost = cost_so_far + road_distance
             if new_cost < best_cost[neighbor]:
                 best_cost[neighbor] = new_cost
-                neighbor_heuristic = get_chebyshev_heuristic(neighbor, goal_city)
-                neighbor_priority = new_cost + neighbor_heuristic
+                h_neighbor, cd_neighbor, md_neighbor, alpha_neighbor, beta_neighbor = get_heuristic_with_details(neighbor, goal_city)
+                neighbor_priority = new_cost + h_neighbor
                 heapq.heappush(frontier, (neighbor_priority, counter, neighbor, path + [neighbor], new_cost))
                 counter += 1
                 step_info["neighbors"].append({
                     "city": neighbor,
                     "g": round(new_cost, 1),
-                    "h": round(neighbor_heuristic, 1),
-                    "f": round(neighbor_priority, 1)
+                    "h": round(h_neighbor, 1),
+                    "f": round(neighbor_priority, 1),
+                    "cd": round(cd_neighbor, 1),
+                    "md": round(md_neighbor, 1),
+                    "alpha": round(alpha_neighbor * 100, 1),
+                    "beta": round(beta_neighbor * 100, 1)
                 })
-
+        
         steps_log.append(step_info)
     
     return [], float('inf'), explored, steps_log
@@ -421,7 +491,7 @@ def run_search(req: SearchRequest):
     elif algo == "HubAndSpoke":
         final_path, cost, steps, steps_log = hub_and_spoke_search(start, goal)
     elif algo == "Cheby_A_Star":
-        final_path, cost, steps, steps_log = a_star_search_chebyshev(start, goal)
+        final_path, cost, steps, steps_log = a_star_search_adaptive(start, goal)
     else:
         return {"error": "Invalid algorithm name"}
 
