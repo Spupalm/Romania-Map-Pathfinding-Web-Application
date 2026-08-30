@@ -1,0 +1,484 @@
+# Only Backend in this version!
+import time
+import math
+import heapq
+
+romania_map = {
+    'Oradea': {'Zerind': 71, 'Sibiu': 151},
+    'Zerind': {'Oradea': 71, 'Arad': 75},
+    'Arad': {'Zerind': 75, 'Sibiu': 140, 'Timisoara': 118},
+    'Timisoara': {'Arad': 118, 'Lugoj': 111},
+    'Lugoj': {'Timisoara': 111, 'Mehadia': 70},
+    'Mehadia': {'Lugoj': 70, 'Drobeta': 75},
+    'Drobeta': {'Mehadia': 75, 'Craiova': 120},
+    'Craiova': {'Drobeta': 120, 'Rimnicu Vilcea': 146, 'Pitesti': 138},
+    'Sibiu': {'Oradea': 151, 'Arad': 140, 'Fagaras': 99, 'Rimnicu Vilcea': 80},
+    'Rimnicu Vilcea': {'Sibiu': 80, 'Craiova': 146, 'Pitesti': 97},
+    'Fagaras': {'Sibiu': 99, 'Bucharest': 211},
+    'Pitesti': {'Rimnicu Vilcea': 97, 'Craiova': 138, 'Bucharest': 101},
+    'Bucharest': {'Fagaras': 211, 'Pitesti': 101, 'Giurgiu': 90, 'Urziceni': 85},
+    'Giurgiu': {'Bucharest': 90},
+    'Urziceni': {'Bucharest': 85, 'Vaslui': 142, 'Hirsova': 98},
+    'Hirsova': {'Urziceni': 98, 'Eforie': 86},
+    'Eforie': {'Hirsova': 86},
+    'Vaslui': {'Urziceni': 142, 'Iasi': 92},
+    'Iasi': {'Vaslui': 92, 'Neamt': 87},
+    'Neamt': {'Iasi': 87}
+}
+
+nodes_coordinates = {
+    "Arad": (92, 492),
+    "Bucharest": (400, 328),
+    "Zerind": (110, 532),
+    "Oradea": (132, 572),
+    "Timisoara": (95, 410),
+    "Lugoj": (166, 380),
+    "Mehadia": (168, 340),
+    "Drobeta": (166, 300),
+    "Sibiu": (208, 458),
+    "Rimnicu Vilcea": (233, 411),
+    "Craiova": (253, 288),
+    "Fagaras": (306, 448),
+    "Pitesti": (320, 368),
+    "Giurgiu": (376, 270),
+    "Neamt": (390, 538),
+    "Iasi": (473, 506),
+    "Vaslui": (510, 444),
+    "Urziceni": (457, 350),
+    "Hirsova": (535, 350),
+    "Eforie": (563, 293),
+}
+
+start_city = input("Start city: ").strip().title()
+goal_city = input("Destination city: ").strip().title()
+
+if start_city not in romania_map:
+    print("INVALID START CITY")
+    exit()
+
+if goal_city not in romania_map:
+    print("INVALID DESTINATION CITY")
+    exit()
+
+# seperator
+sep = "="*20
+
+def chebyshev_distance(current, goal):
+    """
+    Calculate Chebyshev Distance between two points
+    8-directional movement
+    
+    Formula: max(|x1-x2|, |y1-y2|)
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return max(dx, dy)
+
+def manhattan_distance(current, goal):
+    """
+    Calculate Manhattan Distance between two points
+    4-directional movement (no diagonals)
+    
+    Formula: |x1-x2| + |y1-y2|
+    """
+    x1, y1 = current
+    x2, y2 = goal
+    
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    
+    return dx + dy
+
+def get_chebyshev_heuristic(city, goal):
+    """Returns Chebyshev distance from city to goal"""
+    # Get coordinates for both cities
+    city_coords = nodes_coordinates[city]
+    goal_coords = nodes_coordinates[goal]
+    # Pass coordinates to chebyshev_distance
+    return chebyshev_distance(city_coords, goal_coords)
+
+def get_manhattan_heuristic(city, goal):
+    """Returns Manhattan distance from city to goal"""
+    # Get coordinates for both cities
+    city_coords = nodes_coordinates[city]
+    goal_coords = nodes_coordinates[goal]
+    # Pass coordinates to manhattan_distance
+    return manhattan_distance(city_coords, goal_coords)
+
+def breadth_first_search(start, goal):
+    timer_start = time.perf_counter()
+    bfs_frontier = [start]
+    bfs_visited = set()
+    bfs_parent = {}
+    cities_explored = []
+    
+    while bfs_frontier:
+        city = bfs_frontier.pop(0)
+        
+        # Skip if already visited
+        if city in bfs_visited:
+            continue
+            
+        bfs_visited.add(city)
+        cities_explored.append(city)
+
+        if city == goal:
+            cost = 0
+            path = []
+            current = goal
+
+            while current != start:
+                path.append(current)
+                previous = bfs_parent[current]
+                cost += romania_map[current][previous]
+                current = previous
+
+            timer_end = time.perf_counter()
+            time_elapsed = timer_end - timer_start
+
+            # Add the start city
+            path.append(start)
+
+            # Reverse so it becomes Start -> Goal
+            path.reverse()
+
+            # Print results
+            print(sep)
+            print("BREADTH FIRST SEARCH")
+            print(f"Time elapsed: {time_elapsed:.8f} seconds")
+            print(sep)
+            print(f"Path: {' -> '.join(path)}")
+            print(f"Path length: {len(path)} cities")
+            print(f"Cities explored: {len(cities_explored)}")
+            print(f"Total road distance: {cost} km")
+            print()
+            return cost
+        else:
+            for next_city in romania_map[city]:
+                if next_city not in bfs_visited:
+                    bfs_frontier.append(next_city)
+                    bfs_parent[next_city] = city
+
+def depth_first_search(start, goal):
+    timer_start = time.perf_counter()
+    dfs_frontier = [start]
+    dfs_visited = set()
+    dfs_parent = {}
+    cities_explored = []
+    
+    while dfs_frontier:
+        city = dfs_frontier.pop()
+        
+        # Skip if already visited
+        if city in dfs_visited:
+            continue
+            
+        dfs_visited.add(city)
+        cities_explored.append(city)
+
+        if city == goal:
+            cost = 0
+            path = []
+            current = goal
+            
+            while current != start:
+                path.append(current)
+                previous = dfs_parent[current]
+                cost += romania_map[current][previous]
+                current = previous
+                
+            timer_end = time.perf_counter()
+            time_elapsed = timer_end - timer_start
+
+            # Add the start city
+            path.append(start)
+
+            # Reverse so it becomes Start -> Goal
+            path.reverse()
+
+            # Print results
+            print(sep)
+            print("DEPTH FIRST SEARCH")
+            print(f"Time elapsed: {time_elapsed:.8f} seconds")
+            print(sep)
+            print(f"Path: {' -> '.join(path)}")
+            print(f"Path length: {len(path)} cities")
+            print(f"Cities explored: {len(cities_explored)}")
+            print(f"Total road distance: {cost} km")
+            print()
+            return cost
+        
+        else:
+            # Get neighbors and add to frontier
+            for next_city in romania_map[city]:
+                if next_city not in dfs_visited:
+                    dfs_frontier.append(next_city)
+                    dfs_parent[next_city] = city
+
+def custom_a_star(start_city, goal_city):
+    """
+    A* pathfinding using dynamic adaptive weighting of Chebyshev and Manhattan.
+    
+    The weights adapt based on the geometry ratio r = MD/CD:
+    - When r is low (straight paths): Uses more MD (more informed)
+    - When r is high (diagonal paths): Uses more CD (safer)
+    
+    Returns:
+    - path: list of cities from start to goal (or None if no path)
+    - visited: list of cities explored
+    - g_score: dict of actual costs from start to each city
+    """
+    
+    # ==========================================
+    # CUSTOM HEURISTIC: Dynamic Adaptive CD + MD
+    # ==========================================
+    
+    def get_heuristic_with_details(city, goal):
+        """
+        Returns both the custom heuristic value and its components (CD and MD).
+        Uses dynamic adaptive weighting based on the geometry ratio r = MD/CD.
+        
+        Formula:
+        β = 1 / (98 × (r - 1))  [capped at 1.0]
+        α = 1 - β
+        h(n) = α × CD + β × MD
+        
+        Where 98 is the CD of the tightest path (Sibiu → Fagaras, Slack=1)
+        """
+        cd = get_chebyshev_heuristic(city, goal)
+        md = get_manhattan_heuristic(city, goal)
+        
+        if cd == 0:
+            return 0, 0, 0
+        
+        # Calculate geometry ratio
+        r = md / cd
+        
+        # If perfectly straight, MD is exact
+        if r <= 1.0:
+            beta = 1.0  # 100% MD
+            alpha = 0.0
+        else:
+            # Dynamic beta (MD weight) derived from worst-case path
+            # Slack = 1, CD = 98 (Sibiu → Fagaras)
+            beta = 1.0 / (98.0 * (r - 1.0))
+            
+            # Cap beta at 1.0 (100% MD)
+            beta = min(beta, 1.0)
+            alpha = 1.0 - beta
+        
+        custom = alpha * cd + beta * md
+        percentage_of_search.add(f"Manhattan: {beta * 100:.2f}%, Cheby: {alpha* 100:.2f}%")        
+        return custom, cd, md
+    
+    # Start Timer
+    timer_start = time.perf_counter()
+    
+    # Priority queue: (f_score, counter, city)
+    open_set = []
+    counter = 0
+    
+    # Get initial heuristic (custom)
+    h_start, cd_start, md_start = get_heuristic_with_details(start_city, goal_city)
+    heapq.heappush(open_set, (h_start, counter, start_city))
+    counter += 1
+    
+    # Track where we came from (for path reconstruction)
+    came_from = {}
+    
+    # g_score: actual road cost from start to current city
+    g_score = {start_city: 0}
+    
+    # f_score: g_score + heuristic
+    f_score = {start_city: h_start}
+    
+    # Track visited nodes
+    visited = []
+    
+    # ==========================================
+    # PRINT HEADER
+    # ==========================================
+    
+    print(sep)
+    print("A* WITH DYNAMIC ADAPTIVE HEURISTIC")
+    print(sep)
+    print("Weights adapt based on geometry ratio r = MD/CD")
+    print("  - Straight paths (r ≈ 1.0): More MD (more informed)")
+    print("  - Diagonal paths (r ≈ 2.0): More CD (safer)")
+    print()
+    print(sep)
+    print("EXPLORATION STEPS")
+    print(sep)
+    print(f"{'Step':<6} {'City':<15} {'g(n)':<10} {'h(n)':<10} {'f(n)':<10} {'Action':<20}")
+    print("-"*70)
+    
+    step = 0
+    
+    # Print initial heuristic values
+    print(f"{'':<6} {'':<15} {'':<10} {'CD=' + str(cd_start):<10} {'MD=' + str(md_start):<10} {'Initial heuristic'}")
+    print("-"*70)
+    
+    # ==========================================
+    # A* LOOP
+    # ==========================================
+    
+    while open_set:
+        # Get city with lowest f_score
+        current_f, _, current = heapq.heappop(open_set)
+        
+        # Skip if we already found a better path
+        if current_f != f_score.get(current, float('inf')):
+            continue
+        
+        visited.append(current)
+        
+        # Print current node exploration
+        h_current, cd_current, md_current = get_heuristic_with_details(current, goal_city)
+        g_current = g_score[current]
+        f_current = g_current + h_current
+        print(f"{step:<6} {current:<15} {g_current:<10.2f} {h_current:<10.2f} {f_current:<10.2f} {'Exploring'}")
+        step += 1
+        
+        # Check if we reached the goal
+        if current == goal_city:
+            timer_end = time.perf_counter()
+            time_elapsed = timer_end - timer_start
+            
+            print(f"Time elapsed: {time_elapsed:.8f} seconds")
+            print("-"*70)
+            print(f"GOAL REACHED! ({current})")
+            print()
+            
+            # Reconstruct path
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start_city)
+            path.reverse()
+            
+            # ==========================================
+            # PRINT RESULTS
+            # ==========================================
+            
+            print(sep)
+            print("RESULTS")
+            print(sep)
+            print(f"Path: {' → '.join(path)}")
+            print(f"Path length: {len(path)} cities")
+            print(f"Cities explored: {len(visited)}")
+            print()
+            
+            # Calculate total road distance
+            total_distance = 0
+            for i in range(len(path) - 1):
+                total_distance += romania_map[path[i]][path[i+1]]
+            print(f"Total road distance: {total_distance} km")
+            print()
+            custom_a_star_value = total_distance
+            
+            # Print detailed breakdown for each city in path
+            print(sep)
+            print("DETAILED BREAKDOWN (Path Cities)")
+            print(sep)
+            print(f"{'City':<20} {'g(n)':<12} {'h(n)':<12} {'CD':<10} {'MD':<10} {'r':<8} {'f(n)':<12}")
+            print("-"*70)
+            for city in path:
+                g = g_score.get(city, 0)
+                h, cd, md = get_heuristic_with_details(city, goal_city)
+                f = g + h
+                r = md / cd if cd > 0 else 1.0
+                print(f"{city:<20} {g:<12.2f} {h:<12.2f} {cd:<10.2f} {md:<10.2f} {r:<8.2f} {f:<12.2f}")
+            print()
+            
+            # Print heuristic values for all cities involved
+            print(sep)
+            print("HEURISTIC VALUES (Dynamic Adaptive)")
+            print(sep)
+            print(f"{'City':<20} {'CD':<10} {'MD':<10} {'r':<8} {'Custom':<12}")
+            print("-"*70)
+            
+            all_cities = set(visited + path)
+            for city in sorted(all_cities):
+                h, cd, md = get_heuristic_with_details(city, goal_city)
+                r = md / cd if cd > 0 else 1.0
+                print(f"{city:<20} {cd:<10.2f} {md:<10.2f} {r:<8.2f} {h:<12.2f}")
+            print()
+            
+            # Compare heuristic vs actual for path edges
+            print(sep)
+            print("COMPARISON: Custom vs Actual Road Distance")
+            print(sep)
+            print(f"{'Edge':<30} {'Road Distance':<20} {'Custom Heuristic':<15} {'Difference':<12}")
+            print("-"*70)
+            for i in range(len(path) - 1):
+                current_city = path[i]
+                next_city = path[i+1]
+                road_dist = romania_map[current_city][next_city]
+                h, cd, md = get_heuristic_with_details(current_city, next_city)
+                diff = road_dist - h
+                print(f"{current_city} → {next_city:<20} {road_dist:<20} {h:<15.2f} {diff:<12.2f}")
+            print()
+            
+            # ==========================================
+            # RETURN RESULTS
+            # ==========================================
+            
+            return path, visited, g_score, custom_a_star_value
+        
+        # ==========================================
+        # EXPLORE NEIGHBORS
+        # ==========================================
+        
+        for neighbor, road_distance in romania_map[current].items():
+            # Calculate tentative g_score
+            tentative_g = g_score[current] + road_distance
+            
+            # Only consider if this path is better
+            if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g
+                
+                # h(n) = Custom heuristic
+                h_neighbor, cd_neighbor, md_neighbor = get_heuristic_with_details(neighbor, goal_city)
+                f_neighbor = tentative_g + h_neighbor
+                f_score[neighbor] = f_neighbor
+                
+                heapq.heappush(open_set, (f_neighbor, counter, neighbor))
+                counter += 1
+                
+                # Print neighbor discovery
+                r = md_neighbor / cd_neighbor if cd_neighbor > 0 else 1.0
+                print(f"{'':<6} {neighbor:<15} {tentative_g:<10.2f} {h_neighbor:<10.2f} {f_neighbor:<10.2f} {'→ Found via ' + current} (r={r:.2f})")
+    
+    # ==========================================
+    # NO PATH FOUND
+    # ==========================================
+    
+    print(sep)
+    print("NO PATH FOUND!")
+    print(sep)
+    print(f"Cities explored: {len(visited)}")
+    return None, visited, g_score
+
+print()
+custom_a_star_value = 0
+bfs_value = breadth_first_search(start_city, goal_city)
+dfs_value = depth_first_search(start_city, goal_city)
+percentage_of_search = set()
+path, visited, g_score, custom_a_star_value = custom_a_star(start_city, goal_city)
+
+print(f"Percentage Used In Search: {percentage_of_search}")
+
+print(sep)
+if custom_a_star_value == min(bfs_value, dfs_value, custom_a_star_value):
+    print("Custom A-Star is lowest")
+
+print(f"BFS: {bfs_value}")
+print(f"DFS: {dfs_value}")
+print(f"Custom A Star: {custom_a_star_value}")
+print(sep)
