@@ -1,8 +1,19 @@
-# Only Backend in this version!
-import time
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import math
 import heapq
+import time
 
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 romania_map = {
     'Oradea': {'Zerind': 71, 'Sibiu': 151},
@@ -26,27 +37,15 @@ romania_map = {
     'Iasi': {'Vaslui': 92, 'Neamt': 87},
     'Neamt': {'Iasi': 87}
 }
+
 nodes_coordinates = {
-    "Arad": (92, 492),
-    "Bucharest": (400, 328),
-    "Zerind": (110, 532),
-    "Oradea": (132, 572),
-    "Timisoara": (95, 410),
-    "Lugoj": (166, 380),
-    "Mehadia": (168, 340),
-    "Drobeta": (166, 300),
-    "Sibiu": (208, 458),
-    "Rimnicu Vilcea": (233, 411),
-    "Craiova": (253, 288),
-    "Fagaras": (306, 448),
-    "Pitesti": (320, 368),
-    "Giurgiu": (376, 270),
-    "Neamt": (390, 538),
-    "Iasi": (473, 506),
-    "Vaslui": (510, 444),
-    "Urziceni": (457, 350),
-    "Hirsova": (535, 350),
-    "Eforie": (563, 293),
+    "Arad": (92, 492), "Bucharest": (400, 328), "Zerind": (110, 532),
+    "Oradea": (132, 572), "Timisoara": (95, 410), "Lugoj": (166, 380),
+    "Mehadia": (168, 340), "Drobeta": (166, 300), "Sibiu": (208, 458),
+    "Rimnicu Vilcea": (233, 411), "Craiova": (253, 288), "Fagaras": (306, 448),
+    "Pitesti": (320, 368), "Giurgiu": (376, 270), "Neamt": (390, 538),
+    "Iasi": (473, 506), "Vaslui": (510, 444), "Urziceni": (457, 350),
+    "Hirsova": (535, 350), "Eforie": (563, 293),
 }
 node_degrees = {
     'Arad': 3, 'Zerind': 2, 'Oradea': 2, 'Sibiu': 4,
@@ -70,17 +69,55 @@ sep = "====================="
 def get_heuristic(city, goal_city="Bucharest"):
     x1, y1 = nodes_coordinates[city]
     x2, y2 = nodes_coordinates[goal_city]
-    # สูตรระยะทางเส้นตรง: sqrt((x2 - x1)^2 + (y2 - y1)^2)
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
+def chebyshev_distance(current, goal):
+    x1, y1 = current
+    x2, y2 = goal
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    return max(dx, dy)
+
+def get_chebyshev_heuristic(city, goal):
+    city_coords = nodes_coordinates[city]
+    goal_coords = nodes_coordinates[goal]
+    return chebyshev_distance(city_coords, goal_coords)
+
+def manhattan_distance(current, goal):
+    x1, y1 = current
+    x2, y2 = goal
+    dx = abs(x1 - x2)
+    dy = abs(y1 - y2)
+    return dx + dy
+
+# ==================== SEPARATED SEARCH FUNCTIONS ====================
+
 def BFS(start, goal):
-    timer_start = time.perf_counter()
     bfs_frontier = [start]
-    bfs_visited = set(start)
+    bfs_visited = {start}
     bfs_parent = {}
+    steps = []
+    steps_log = []
+
     while bfs_frontier:
         city = bfs_frontier.pop(0)
-        bfs_visited.add(city)
+        steps.append(city)
+        
+        # เพิ่มการเก็บ Visited Array ณ ปัจจุบัน และคำนวณ Cost รวมของเมืองใน Visited Array
+        visited_list = list(bfs_visited)
+        visited_total_cost = 0
+        for v_city in visited_list:
+            if v_city in bfs_parent:
+                p_city = bfs_parent[v_city]
+                visited_total_cost += romania_map[v_city][p_city]
+
+        step_info = {
+            "step": len(steps), 
+            "expanded_node": city, 
+            "neighbors": [],
+            "visited": visited_list,
+            "visited_cost": visited_total_cost
+        }
 
         if city == goal:
             cost = 0
@@ -93,254 +130,327 @@ def BFS(start, goal):
                 cost += romania_map[current][previous]
                 current = previous
 
-            timer_end = time.perf_counter()
-            time_elapsed = timer_end - timer_start
-
-            # Add the start city
             path.append(start)
-
-            # Reverse so it becomes Start -> Goal
             path.reverse()
-
-            # For debugging/showing path
-            print(sep)
-            print("Breadth First Search")
-            print(f"Time elapsed: {time_elapsed:.8f} seconds")
-            print(sep)
-            print("Path:", " -> ".join(path))
-            print("Cost:", cost)
-            return
+            step_info["current_path"] = path
+            steps_log.append(step_info)
+            return path, cost, steps, steps_log
         else:
-
             for next_city in romania_map[city]:
                 if next_city not in bfs_visited:
+                    bfs_visited.add(next_city)
                     bfs_frontier.append(next_city)
                     bfs_parent[next_city] = city
+                    step_info["neighbors"].append({"city": next_city})
+
+        steps_log.append(step_info)
+
+    return [], float('inf'), steps, steps_log
 
 def DFS(start, goal):
-    timer_start = time.perf_counter()
     dfs_frontier = [start]
-    dfs_visited = set(start)
+    dfs_visited = set()
     dfs_parent = {}
+    steps = []
+    steps_log = []
+
     while dfs_frontier:
         city = dfs_frontier.pop()
+        if city in dfs_visited:
+            continue
         dfs_visited.add(city)
+        steps.append(city)
+        
+        # เพิ่มการเก็บ Visited Array ณ ปัจจุบัน และคำนวณ Cost รวมของเมืองใน Visited Array
+        visited_list = list(dfs_visited)
+        visited_total_cost = 0
+        for v_city in visited_list:
+            if v_city in dfs_parent:
+                p_city = dfs_parent[v_city]
+                visited_total_cost += romania_map[v_city][p_city]
+
+        step_info = {
+            "step": len(steps), 
+            "expanded_node": city, 
+            "neighbors": [],
+            "visited": visited_list,
+            "visited_cost": visited_total_cost
+        }
 
         if city == goal:
             cost = 0
             path = []
             current = goal
+
             while current != start:
                 path.append(current)
                 previous = dfs_parent[current]
                 cost += romania_map[current][previous]
                 current = previous
-                
-            timer_end = time.perf_counter()
-            time_elapsed = timer_end - timer_start
 
-            # Add the start city
             path.append(start)
-
-            # Reverse so it becomes Start -> Goal
             path.reverse()
-
-            # For debugging/showing path
-            print(sep)
-            print("Depth First Search")
-            print(f"Time elapsed: {time_elapsed:.8f} seconds")
-            print(sep)
-            print("Path:", " -> ".join(path))
-            print("Cost:", cost)
-            return
+            step_info["current_path"] = path
+            steps_log.append(step_info)
+            return path, cost, steps, steps_log
         else:
-
             for next_city in romania_map[city]:
                 if next_city not in dfs_visited:
                     dfs_frontier.append(next_city)
                     dfs_parent[next_city] = city
+                    step_info["neighbors"].append({"city": next_city})
+
+        steps_log.append(step_info)
+
+    return [], float('inf'), steps, steps_log
+
 def greedy_best_first_search(start, goal):
-    # Priority Queue stores tuples of: (h_score, current_node, path, g_score)
-    timer_start = time.perf_counter()
     open_set = []
-    
-    # Calculate initial heuristic h(start)
     h_start = get_heuristic(start, goal)
     heapq.heappush(open_set, (h_start, start, [start], 0))
-    
     visited = set()
-    step = 1
-    
-    print(sep)
-    print(f"=== Starting Greedy Best-First Search from {start} to {goal} ===\n")
-    
-    while open_set:
-        # Pop node with the lowest h(n) value
-        h, current, path, g = heapq.heappop(open_set)
-        
-        if current in visited:
-            continue
-            
-        print(f"Iteration {step}:")
-        print(f"  -> Expanding Node: [ {current} ]")
-        print(f"     h({current}) = {h:.1f}, path cost so far g({current}) = {g}")
-        
-        # Goal check
-        if current == goal:
-            timer_end = time.perf_counter()
-            time_elapsed = timer_end - timer_start
-            print(f"\n==========================================")
-            print(f"Greedy Best-First Search Completed!")
-            print(f"Path: {' -> '.join(path)}")
-            print(f"Total Cost: {g}")
-            print(f"Time elapsed: {time_elapsed:.8f} seconds")
-            print(f"==========================================")
-            return path, g
-            
-        visited.add(current)
-        
-        # Explore neighbors
-        print("     Possible Next Neighbor Nodes:")
-        for neighbor, edge_cost in romania_map[current].items():
-            if neighbor in visited:
-                continue
-                
-            tentative_g = g + edge_cost
-            h_neighbor = get_heuristic(neighbor, goal)
-            heapq.heappush(open_set, (h_neighbor, neighbor, path + [neighbor], tentative_g))
-            print(f"       - {neighbor}: h = {h_neighbor:.1f} (edge cost = {edge_cost})")
-                
-        print("-" * 50)
-        step += 1
+    steps = []
+    steps_log = []
 
-    print("No valid path found to the destination.")
-    return None, float('inf')
+    while open_set:
+        h, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
+            continue
+        visited.add(curr)
+        steps.append(curr)
+
+        step_info = {
+            "step": len(steps),
+            "expanded_node": curr,
+            "g": round(g, 1),
+            "h": round(h, 1),
+            "f": round(h, 1),
+            "current_path": path,
+            "neighbors": []
+        }
+
+        if curr == goal:
+            steps_log.append(step_info)
+            return path, g, steps, steps_log
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
+                continue
+            tentative_g = g + edge_cost
+            h_neighbor = get_heuristic(nxt, goal)
+            heapq.heappush(open_set, (h_neighbor, nxt, path + [nxt], tentative_g))
+            step_info["neighbors"].append({
+                "city": nxt,
+                "g": round(tentative_g, 1),
+                "h": round(h_neighbor, 1),
+                "f": round(h_neighbor, 1)
+            })
+
+        steps_log.append(step_info)
+
+    return [], float('inf'), steps, steps_log
 
 def a_star_search(start, goal):
-    # Priority Queue stores tuples of: (f_score, current_node, path, g_score)
-    timer_start = time.perf_counter()
     open_set = []
-    
-    # Calculate initial heuristic h(start)
     h_start = get_heuristic(start, goal)
     heapq.heappush(open_set, (h_start, start, [start], 0))
-    
-    g_scores = {city: float('inf') for city in nodes_coordinates}
-    g_scores[start] = 0
-
     visited = set()
-    
-    step = 1
-    print(f"=== Starting A* Search from {start} to {goal} ===\n")
-    
+    g_scores = {c: float('inf') for c in romania_map}
+    g_scores[start] = 0
+    steps = []
+    steps_log = []
+
     while open_set:
-        # Pop the node with the lowest f(n) value
-        f, current, path, g = heapq.heappop(open_set)
-        
-        if current in visited:
+        f, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
             continue
-            
-        print(f"Iteration {step}:")
-        print(f"  -> Expanding Node: [ {current} ]")
-        print(f"     g({current}) = {g:.1f}, h({current}) = {get_heuristic(current, goal):.1f}, f({current}) = {f:.1f}")
+        visited.add(curr)
+        steps.append(curr)
+
+        step_info = {
+            "step": len(steps),
+            "expanded_node": curr,
+            "g": round(g, 1),
+            "h": round(get_heuristic(curr, goal), 1),
+            "f": round(f, 1),
+            "current_path": path,
+            "neighbors": []
+        }
+
+        if curr == goal:
+            steps_log.append(step_info)
+            return path, g, steps, steps_log
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
+                continue
+            tentative_g = g + edge_cost
+            if tentative_g < g_scores[nxt]:
+                g_scores[nxt] = tentative_g
+                h_val = get_heuristic(nxt, goal)
+                f_val = tentative_g + h_val
+                heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
+                step_info["neighbors"].append({
+                    "city": nxt,
+                    "g": round(tentative_g, 1),
+                    "h": round(h_val, 1),
+                    "f": round(f_val, 1)
+                })
+
+        steps_log.append(step_info)
+
+    return [], float('inf'), steps, steps_log
+
+def a_star_search_chebyshev(start_city, goal_city):
+    frontier = []
+    counter = 0
+    start_heuristic = get_chebyshev_heuristic(start_city, goal_city)
+    heapq.heappush(frontier, (start_heuristic, counter, start_city, [start_city], 0))
+    counter += 1
+    
+    explored = []
+    visited = set()
+    best_cost = {city: float('inf') for city in romania_map}
+    best_cost[start_city] = 0
+    steps_log = []
+
+    while frontier:
+        priority, _, current_city, path, cost_so_far = heapq.heappop(frontier)
         
-        # Goal check
-        if current == goal:
-            timer_end = time.perf_counter()
-            time_elapsed = timer_end - timer_start
-            print(f"\n==========================================")
-            print(f"A* Search Completed!")
-            print(f"Path: {' -> '.join(path)}")
-            print(f"Total Cost: {g}")
-            print(f"Time elapsed: {time_elapsed:.8f} seconds")
-            print(f"==========================================")
-            return path, g
-            
-        visited.add(current)
+        if current_city in visited:
+            continue
         
-        # Explore neighbors
-        print("     Possible Next Neighbor Nodes:")
-        for neighbor, edge_cost in romania_map[current].items():
+        visited.add(current_city)
+        explored.append(current_city)
+
+        step_info = {
+            "step": len(explored),
+            "expanded_node": current_city,
+            "g": round(cost_so_far, 1),
+            "h": round(get_chebyshev_heuristic(current_city, goal_city), 1),
+            "f": round(priority, 1),
+            "current_path": path,
+            "neighbors": []
+        }
+        
+        if current_city == goal_city:
+            steps_log.append(step_info)
+            return path, cost_so_far, explored, steps_log
+        
+        for neighbor, road_distance in romania_map[current_city].items():
             if neighbor in visited:
                 continue
-                
-            tentative_g = g + edge_cost
-            if tentative_g < g_scores[neighbor]:
-                g_scores[neighbor] = tentative_g
-                h = get_heuristic(neighbor, goal)
-                f_neighbor = tentative_g + h
-                heapq.heappush(open_set, (f_neighbor, neighbor, path + [neighbor], tentative_g))
-                print(f"       - {neighbor}: g = {tentative_g}, h = {h:.1f} ==> f = {f_neighbor:.1f}")
-                
-        print("-" * 50)
-        step += 1
+            
+            new_cost = cost_so_far + road_distance
+            if new_cost < best_cost[neighbor]:
+                best_cost[neighbor] = new_cost
+                neighbor_heuristic = get_chebyshev_heuristic(neighbor, goal_city)
+                neighbor_priority = new_cost + neighbor_heuristic
+                heapq.heappush(frontier, (neighbor_priority, counter, neighbor, path + [neighbor], new_cost))
+                counter += 1
+                step_info["neighbors"].append({
+                    "city": neighbor,
+                    "g": round(new_cost, 1),
+                    "h": round(neighbor_heuristic, 1),
+                    "f": round(neighbor_priority, 1)
+                })
 
-    print("No valid path found to the destination.")
-    return None, float('inf')
-def Hub_and_Spoke_Search(start, goal):
-    # Priority Queue stores tuples of: (f_score, current_node, path, g_score)
-    timer_start = time.perf_counter()
-    open_set = []
+        steps_log.append(step_info)
     
-    # Calculate initial heuristic h(start)
+    return [], float('inf'), explored, steps_log
+
+def hub_and_spoke_search(start, goal):
+    open_set = []
     h_start = get_heuristic(start, goal)
     heapq.heappush(open_set, (h_start, start, [start], 0))
-    
-    g_scores = {city: float('inf') for city in nodes_coordinates}
-    g_scores[start] = 0
-
     visited = set()
-    
-    step = 1
-    print(f"=== Starting Hub and Spoke Search from {start} to {goal} ===\n")
-    
+    g_scores = {c: float('inf') for c in romania_map}
+    g_scores[start] = 0
+    steps = []
+    steps_log = []
+
     while open_set:
-        # Pop the node with the lowest f(n) value
-        f, current, path, g = heapq.heappop(open_set)
-        
-        if current in visited:
+        f, curr, path, g = heapq.heappop(open_set)
+        if curr in visited:
             continue
-            
-        print(f"Iteration {step}:")
-        print(f"  -> Expanding Node: [ {current} ]")
-        print(f"     g({current}) = {g:.1f}, h({current}) = {get_heuristic(current, goal):.1f}, f({current}) = {f:.1f}")
-        
-        # Goal check
-        if current == goal:
-            timer_end = time.perf_counter()
-            time_elapsed = timer_end - timer_start
-            print(f"\n==========================================")
-            print(f"Hub and Spoke Search Completed!")
-            print(f"Path: {' -> '.join(path)}")
-            print(f"Total Cost: {g}")
-            print(f"Time elapsed: {time_elapsed:.8f} seconds")
-            print(f"==========================================")
-            return path, g
-            
-        visited.add(current)
-        
-        # Explore neighbors
-        print("     Possible Next Neighbor Nodes:")
-        for neighbor, edge_cost in romania_map[current].items():
-            if neighbor in visited:
+        visited.add(curr)
+        steps.append(curr)
+
+        step_info = {
+            "step": len(steps),
+            "expanded_node": curr,
+            "g": round(g, 1),
+            "h": round(get_heuristic(curr, goal), 1),
+            "f": round(f, 1),
+            "current_path": path,
+            "neighbors": []
+        }
+
+        if curr == goal:
+            steps_log.append(step_info)
+            return path, g, steps, steps_log
+
+        for nxt, edge_cost in romania_map[curr].items():
+            if nxt in visited:
                 continue
-                
             tentative_g = g + edge_cost
-            if tentative_g < g_scores[neighbor]:
-                g_scores[neighbor] = tentative_g
-                h = get_heuristic(neighbor, goal)
-                f_neighbor = tentative_g + h - (node_degrees[neighbor] * 20)  # Adjust f(n) based on node degree
-                heapq.heappush(open_set, (f_neighbor, neighbor, path + [neighbor], tentative_g))
-                print(f"       - {neighbor}: g = {tentative_g}, h = {h:.1f} ==> f = {f_neighbor:.1f}")
-                
-        print("-" * 50)
-        step += 1
+            if tentative_g < g_scores[nxt]:
+                g_scores[nxt] = tentative_g
+                h_val = get_heuristic(nxt, goal)
+                f_val = tentative_g + h_val - (node_degrees[nxt] * 20)
+                heapq.heappush(open_set, (f_val, nxt, path + [nxt], tentative_g))
+                step_info["neighbors"].append({
+                    "city": nxt,
+                    "g": round(tentative_g, 1),
+                    "h": round(h_val, 1),
+                    "f": round(f_val, 1)
+                })
 
-    print("No valid path found to the destination.")
-    return None, float('inf')
+        steps_log.append(step_info)
 
-BFS(start_city, goal_city)
-DFS(start_city, goal_city)
-greedy_best_first_search(start_city, goal_city)
-a_star_search(start_city, goal_city)
-Hub_and_Spoke_Search(start_city, goal_city)
+    return [], float('inf'), steps, steps_log
+
+# ==================== FASTAPI API ROUTE ====================
+
+class SearchRequest(BaseModel):
+    start: str
+    goal: str
+    algorithm: str
+
+@app.post("/api/search")
+def run_search(req: SearchRequest):
+    start, goal, algo = req.start, req.goal, req.algorithm
+    
+    if start not in romania_map or goal not in romania_map:
+        return {"error": "Invalid start or goal city"}
+
+    timer_start = time.perf_counter()
+
+    if algo == "BFS":
+        final_path, cost, steps, steps_log = BFS(start, goal)
+    elif algo == "DFS":
+        final_path, cost, steps, steps_log = DFS(start, goal)
+    elif algo == "Greedy":
+        final_path, cost, steps, steps_log = greedy_best_first_search(start, goal)
+    elif algo == "A*":
+        final_path, cost, steps, steps_log = a_star_search(start, goal)
+    elif algo == "HubAndSpoke":
+        final_path, cost, steps, steps_log = hub_and_spoke_search(start, goal)
+    elif algo == "Cheby_A_Star":
+        final_path, cost, steps, steps_log = a_star_search_chebyshev(start, goal)
+    else:
+        return {"error": "Invalid algorithm name"}
+
+    time_elapsed = time.perf_counter() - timer_start
+    return {
+        "algorithm": algo,
+        "path": final_path,
+        "cost": cost,
+        "steps": steps,
+        "steps_log": steps_log,
+        "execution_time": f"{time_elapsed:.6f} s"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
