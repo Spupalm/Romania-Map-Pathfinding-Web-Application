@@ -382,7 +382,7 @@ def a_star_search_adaptive(start_city, goal_city): # Nah, I'd adapt - "Mahoraga"
             "current_path": path,
             "neighbors": []
         }
-        
+        print(step_info)
         if current_city == goal_city:
             steps_log.append(step_info)
             return path, cost_so_far, explored, steps_log
@@ -408,6 +408,7 @@ def a_star_search_adaptive(start_city, goal_city): # Nah, I'd adapt - "Mahoraga"
                     "alpha": round(alpha_neighbor * 100, 1),
                     "beta": round(beta_neighbor * 100, 1)
                 })
+                print(step_info)
         
         steps_log.append(step_info)
     
