@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Jaro } from "next/font/google";
 import { Jockey_One } from "next/font/google";
+import AuthControls from "./AuthControls";
 
 const jaro = Jaro({
   subsets: ["latin"],
@@ -20,7 +21,7 @@ interface NavbarProps {
   algorithmLabel: string;
 
   /** List of Romanian cities */
-  cityNames?: string[];
+  cityNames?: readonly string[];
 
   /** Called when user types in search */
   onSearchChange?: (value: string) => void;
@@ -502,21 +503,8 @@ export default function Navbar({
           PROFILE
           ============================================================ */}
 
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          background: "#fbf7ee",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {/* User icon can be added here */}
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <AuthControls />
       </div>
     </div>
   );

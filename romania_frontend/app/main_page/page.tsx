@@ -1,266 +1,251 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
-import Map, {
-  CITY_NAMES,
-  type CityName,
-} from "../../components/Map";
+import Map from "../../components/Map";
 import AlgorithmSelector from "../../components/AlgorithmSelector";
+import {
+  ALGORITHMS,
+  CITY_NAMES,
+  algorithmFromId,
+  algorithmFromRunMode,
+  type AlgorithmId,
+  type CityName,
+  type SavedRoute,
+  type SearchResponse,
+  type WorkflowStep,
+} from "../../lib/pathfinding";
+import { createClient } from "../../lib/supabase/client";
+import { isSupabaseConfigured } from "../../lib/supabase/config";
 
-/* ============================================================
-   ALGORITHMS
-   ============================================================ */
-
-const ALGORITHMS = [
-  { id: "dfs", label: "Depth First" },
-  { id: "bfs", label: "Breadth First" },
-  { id: "greedy", label: "Greedy Best-First" },
-  { id: "astar", label: "A* Search" },
-  { id: "hub_and_spoke", label: "Hub and Spoke" },
-];
-
-const ALGORITHM_LABELS = ALGORITHMS.map(
-  (algorithm) => algorithm.label
-);
-
-/* ============================================================
-   MAIN PAGE
-   ============================================================ */
+const ALGORITHM_LABELS = ALGORITHMS.map((algorithm) => algorithm.label);
 
 export default function MainPage() {
-  /* ==========================================================
-     ALGORITHM
-     ========================================================== */
-
-  const [algoId, setAlgoId] = useState("dfs");
-
-  /* ==========================================================
-     SEARCH
-     ========================================================== */
-
+  const router = useRouter();
+  const [algoId, setAlgoId] = useState<AlgorithmId>("dfs");
   const [query, setQuery] = useState("");
+  const [showAlgorithmSelector, setShowAlgorithmSelector] = useState(false);
+  const [startCity, setStartCity] = useState<CityName>("Arad");
+  const [goalCity, setGoalCity] = useState<CityName>("Bucharest");
+  const [path, setPath] = useState<CityName[]>([]);
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
+  const [pathCostKm, setPathCostKm] = useState<number | null>(null);
+  const [executionTimeMs, setExecutionTimeMs] = useState<number | null>(null);
+  const [peakMemoryKb, setPeakMemoryKb] = useState<number | null>(null);
+  const [saveEnabled, setSaveEnabled] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  /* ==========================================================
-     ALGORITHM SELECTOR
-     ========================================================== */
+  const selectedAlgorithm = algorithmFromId(algoId);
 
-  const [showAlgorithmSelector, setShowAlgorithmSelector] =
-    useState(false);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
 
-  /* ==========================================================
-     START / GOAL
-     ========================================================== */
+    const supabase = createClient();
+    let active = true;
 
-  const [startCity, setStartCity] =
-    useState<CityName>("Arad");
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setCurrentUserId(data.user?.id ?? null);
+    });
 
-  const [goalCity, setGoalCity] =
-    useState<CityName>("Bucharest");
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUserId(session?.user.id ?? null);
+      if (!session?.user) setSaveEnabled(false);
+    });
 
-  /* ==========================================================
-     YELLOW PATH
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
-     Keep this path so the yellow route remains visible.
-     ========================================================== */
-
-  const [path, setPath] = useState<CityName[]>([
-    "Arad",
-    "Sibiu",
-    "Rimnicu Vilcea",
-    "Pitesti",
-    "Bucharest",
-  ]);
-
-  /* ==========================================================
-     CURRENT ALGORITHM LABEL
-     ========================================================== */
-
-  const algorithmLabel =
-    ALGORITHMS.find(
-      (algorithm) => algorithm.id === algoId
-    )?.label ?? "Depth First";
-
-  /* ==========================================================
-     ALGORITHM CHANGE
-     ========================================================== */
-
-  function handleAlgorithmChange(label: string) {
-    const selectedAlgorithm = ALGORITHMS.find(
-      (algorithm) => algorithm.label === label
+  useEffect(() => {
+    const savedRouteId = new URLSearchParams(window.location.search).get(
+      "savedRoute",
     );
+    if (!savedRouteId) return;
 
-    if (!selectedAlgorithm) {
-      return;
+    let active = true;
+
+    async function loadSavedRoute() {
+      try {
+        const response = await fetch(
+          `/api/saved-routes/${encodeURIComponent(savedRouteId!)}`,
+        );
+        const data = (await response.json()) as {
+          route?: SavedRoute;
+          error?: string;
+        };
+
+        if (!response.ok || !data.route) {
+          throw new Error(data.error ?? "Could not load the saved route.");
+        }
+        if (!active) return;
+
+        const route = data.route;
+        setStartCity(route.start_city);
+        setGoalCity(route.goal_city);
+        setAlgoId(algorithmFromRunMode(route.run_mode).id);
+        setPath(route.route_path);
+        setWorkflowSteps(route.workflow_steps);
+        setPathCostKm(route.path_cost_km);
+        setExecutionTimeMs(route.execution_time_ms);
+        setPeakMemoryKb(route.peak_memory_kb);
+        setSaveEnabled(false);
+        setNotice("Saved route loaded. Press Run to execute it again.");
+        setError("");
+      } catch (loadError) {
+        if (!active) return;
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Could not load the saved route.",
+        );
+      }
     }
 
-    setAlgoId(selectedAlgorithm.id);
-  }
+    void loadSavedRoute();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  /* ==========================================================
-     CITY SEARCH
-     ========================================================== */
+  function clearResult() {
+    setPath([]);
+    setWorkflowSteps([]);
+    setPathCostKm(null);
+    setExecutionTimeMs(null);
+    setPeakMemoryKb(null);
+    setNotice("");
+  }
 
   function findCity(searchText: string): CityName | null {
     const text = searchText.trim().toLowerCase();
+    if (!text) return null;
 
-    if (!text) {
-      return null;
-    }
-
-    /* Exact match first */
-
-    const exactCity = CITY_NAMES.find(
-      (city) =>
-        city.toLowerCase() === text
+    return (
+      CITY_NAMES.find((city) => city.toLowerCase() === text) ??
+      CITY_NAMES.find((city) => city.toLowerCase().includes(text)) ??
+      null
     );
-
-    if (exactCity) {
-      return exactCity;
-    }
-
-    /* Partial match */
-
-    const partialCity = CITY_NAMES.find(
-      (city) =>
-        city.toLowerCase().includes(text)
-    );
-
-    return partialCity ?? null;
   }
-
-  /* ==========================================================
-     CITY SELECTED FROM SEARCH SUGGESTIONS
-     ========================================================== */
 
   function handleCitySelect(city: string) {
-    const selectedCity = city as CityName;
-
-    if (!CITY_NAMES.includes(selectedCity)) {
-      return;
-    }
-
-    /*
-     * Move the selected city to START.
-     */
-
-    setStartCity(selectedCity);
-
-    /*
-     * Keep the yellow path.
-     */
-
-    console.log(
-      "Selected city:",
-      selectedCity
-    );
+    if (!CITY_NAMES.includes(city as CityName)) return;
+    setStartCity(city as CityName);
+    clearResult();
   }
-
-  /* ==========================================================
-     SEARCH SUBMIT
-     ========================================================== */
 
   function handleSearchSubmit() {
     const foundCity = findCity(query);
-
     if (!foundCity) {
-      console.log(
-        "City not found:",
-        query
-      );
+      setError("City not found.");
       return;
     }
-
-    /*
-     * Set the searched city as START.
-     */
-
     setStartCity(foundCity);
-
-    /*
-     * Keep yellow path visible.
-     */
-
-    console.log(
-      "Searching for:",
-      foundCity
-    );
+    clearResult();
+    setError("");
   }
 
-  /* ==========================================================
-     FOCUS CITY
-     ========================================================== */
-
-  function handleFocusCity(city: CityName) {
-    if (!CITY_NAMES.includes(city)) {
-      return;
-    }
-
-    /*
-     * Set selected city as START.
-     */
-
-    setStartCity(city);
-
-    /*
-     * Keep yellow path.
-     */
-
-    console.log(
-      "Focus city:",
-      city
-    );
+  function handleAlgorithmChange(label: string) {
+    const algorithm = ALGORITHMS.find((item) => item.label === label);
+    if (!algorithm) return;
+    setAlgoId(algorithm.id);
+    clearResult();
   }
-
-  /* ==========================================================
-     MAP START CITY CHANGE
-     ========================================================== */
-
-  function handleStartCityChange(
-    city: CityName
-  ) {
-    setStartCity(city);
-  }
-
-  /* ==========================================================
-     MAP GOAL CITY CHANGE
-     ========================================================== */
-
-  function handleGoalCityChange(
-    city: CityName
-  ) {
-    setGoalCity(city);
-  }
-
-  /* ==========================================================
-     RESET
-     ========================================================== */
 
   function handleReset() {
     setStartCity("Arad");
-
     setGoalCity("Bucharest");
-
-    /*
-     * Restore yellow path.
-     */
-
-    setPath([
-      "Arad",
-      "Sibiu",
-      "Rimnicu Vilcea",
-      "Pitesti",
-      "Bucharest",
-    ]);
-
-    setQuery("");
-
     setAlgoId("dfs");
+    setQuery("");
+    setSaveEnabled(false);
+    setError("");
+    clearResult();
   }
 
-  /* ============================================================
-     PAGE
-     ============================================================ */
+  async function handleRun() {
+    if (startCity === goalCity) {
+      setError("Start and End cities cannot be the same.");
+      return;
+    }
+
+    setRunning(true);
+    setError("");
+    setNotice("");
+    clearResult();
+
+    try {
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+      const response = await fetch(`${apiUrl}/api/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start: startCity,
+          goal: goalCity,
+          algorithm: selectedAlgorithm.runMode,
+        }),
+      });
+      const result = (await response.json()) as SearchResponse;
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error ?? `Server returned ${response.status}`);
+      }
+
+      const resultPath = Array.isArray(result.path) ? result.path : [];
+      const resultSteps = Array.isArray(result.steps_log) ? result.steps_log : [];
+      const resultExecutionTime = Number(result.execution_time_ms ?? 0);
+      const resultPeakMemory = Number(result.peak_memory_kb ?? 0);
+
+      setPath(resultPath);
+      setWorkflowSteps(resultSteps);
+      setPathCostKm(result.cost);
+      setExecutionTimeMs(resultExecutionTime);
+      setPeakMemoryKb(resultPeakMemory);
+
+      if (saveEnabled && currentUserId && resultPath.length > 0) {
+        try {
+          const saveResponse = await fetch("/api/saved-routes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start_city: startCity,
+              goal_city: goalCity,
+              route_path: resultPath,
+              workflow_steps: resultSteps,
+              run_mode: selectedAlgorithm.runMode,
+              path_cost_km: result.cost,
+              execution_time_ms: resultExecutionTime,
+              peak_memory_kb: resultPeakMemory,
+            }),
+          });
+          const saveResult = (await saveResponse.json()) as { error?: string };
+          if (!saveResponse.ok) {
+            throw new Error(saveResult.error ?? "Could not save the route.");
+          }
+          setNotice("Route saved successfully.");
+        } catch (saveError) {
+          setNotice(
+            `Run completed, but saving failed: ${
+              saveError instanceof Error ? saveError.message : "Unknown error"
+            }`,
+          );
+        }
+      }
+    } catch (runError) {
+      setError(
+        runError instanceof Error
+          ? runError.message
+          : "Could not connect to the pathfinding server.",
+      );
+    } finally {
+      setRunning(false);
+    }
+  }
 
   return (
     <main
@@ -271,181 +256,99 @@ export default function MainPage() {
         overflow: "hidden",
       }}
     >
-      {/* ======================================================
-          NAVBAR
-          ====================================================== */}
-
       <Navbar
-        algorithmLabel={algorithmLabel}
-        cityNames={CITY_NAMES}
-
-        /* Search text */
-
-        onSearchChange={(value) => {
-          setQuery(value);
-        }}
-
-        /* City selected from dropdown */
-
+        algorithmLabel={selectedAlgorithm.label}
+        cityNames={[...CITY_NAMES]}
+        onSearchChange={setQuery}
         onCitySelect={handleCitySelect}
-
-        /* Enter / search button */
-
         onSearchSubmit={handleSearchSubmit}
-
-        /*
-         * Clicking the search bar opens
-         * Algorithm Selector.
-         */
-
-        onSearchBarClick={() => {
-          setShowAlgorithmSelector(
-            (open) => !open
-          );
-        }}
+        onSearchBarClick={() => setShowAlgorithmSelector((open) => !open)}
       />
-
-      {/* ======================================================
-          ALGORITHM SELECTOR
-          ====================================================== */}
 
       {showAlgorithmSelector && (
         <>
-          {/* ==================================================
-              BACKDROP
-              ================================================== */}
-
           <div
-            onClick={() =>
-              setShowAlgorithmSelector(false)
-            }
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 10,
-              background: "transparent",
-            }}
+            onClick={() => setShowAlgorithmSelector(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 10 }}
           />
-
-          {/* ==================================================
-              SELECTOR CONTAINER
-
-              IMPORTANT:
-              It is positioned BELOW the Navbar.
-              ================================================== */}
-
-            <div
-              style={{
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
               position: "absolute",
               top: "100px",
               right: "40px",
-              width: "620px",
+              width: "min(620px, calc(100% - 80px))",
               zIndex: 20,
-              }}
-            
-            onClick={(event) => {
-              event.stopPropagation();
             }}
           >
             <AlgorithmSelector
               startCity={startCity}
               goalCity={goalCity}
-              selectedAlgorithm={
-                algorithmLabel
-              }
-              cityNames={CITY_NAMES}
-              algorithms={
-                ALGORITHM_LABELS
-              }
-
-              /* Start */
-
-              onStartCityChange={
-                handleStartCityChange
-              }
-
-              /* End */
-
-              onGoalCityChange={
-                handleGoalCityChange
-              }
-
-              /* Algorithm */
-
-              onAlgorithmChange={
-                handleAlgorithmChange
-              }
-
-              /* Focus city */
-
-              onFocusCity={
-                handleFocusCity
-              }
-
-              /* Search */
-
-              onSearch={() => {
-                handleSearchSubmit();
-
-                setShowAlgorithmSelector(
-                  false
-                );
+              selectedAlgorithm={selectedAlgorithm.label}
+              cityNames={[...CITY_NAMES]}
+              algorithms={ALGORITHM_LABELS}
+              onStartCityChange={(city) => {
+                setStartCity(city);
+                clearResult();
               }}
-
-              /* Reset */
-
+              onGoalCityChange={(city) => {
+                setGoalCity(city);
+                clearResult();
+              }}
+              onAlgorithmChange={handleAlgorithmChange}
+              onFocusCity={(city) => {
+                setStartCity(city);
+                clearResult();
+              }}
+              onSearch={() => {
+                void handleRun();
+                setShowAlgorithmSelector(false);
+              }}
               onReset={handleReset}
+              showSaveControl
+              saveEnabled={saveEnabled}
+              canSave={Boolean(currentUserId && isSupabaseConfigured)}
+              isRunning={running}
+              onSaveEnabledChange={setSaveEnabled}
+              onSignIn={() => router.push("/auth")}
             />
           </div>
         </>
       )}
 
-      {/* ======================================================
-          MAP
-          ====================================================== */}
+      {(error || notice) && (
+        <div
+          role="status"
+          style={{
+            margin: "12px 20px 0",
+            padding: "12px 16px",
+            borderRadius: "12px",
+            background: error ? "#9f2f2f" : "#285f4a",
+            color: "white",
+            fontWeight: 700,
+          }}
+        >
+          {error || notice}
+        </div>
+      )}
 
-      <section
-        style={{
-          width: "100%",
-          padding: "20px",
-          boxSizing: "border-box",
-        }}
-      >
+      <section style={{ width: "100%", padding: "20px", boxSizing: "border-box" }}>
         <Map
-          /* Start */
-
           startCity={startCity}
-
-          /* Goal */
-
           goalCity={goalCity}
-
-          /*
-           * IMPORTANT:
-           * Keep the yellow path.
-           */
-
           path={path}
-
-          /* Distances */
-
-          showDistances={true}
-
-          /* City names */
-
-          showCityNames={true}
-
-          /* Map -> Main Page */
-
-          onStartCityChange={
-            handleStartCityChange
-          }
-
-          onGoalCityChange={
-            handleGoalCityChange
-          }
+          pathCostKm={pathCostKm}
+          executionTimeMs={executionTimeMs}
+          peakMemoryKb={peakMemoryKb}
+          workflowSteps={workflowSteps}
+          showDistances
+          showCityNames
+          onStartCityChange={setStartCity}
+          onGoalCityChange={setGoalCity}
+          onRouteChange={clearResult}
         />
       </section>
     </main>
   );
 }
+

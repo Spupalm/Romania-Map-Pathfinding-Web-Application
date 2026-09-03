@@ -4,8 +4,14 @@ from pydantic import BaseModel
 import math
 import heapq
 import time
+import threading
+import tracemalloc
 
 app = FastAPI()
+
+# tracemalloc is process-global. Serialising the very small search runs keeps
+# per-request peak allocation measurements from being mixed together.
+search_metrics_lock = threading.Lock()
 
 app.add_middleware(
     CORSMiddleware,
@@ -382,7 +388,6 @@ def a_star_search_adaptive(start_city, goal_city): # Nah, I'd adapt - "Mahoraga"
             "current_path": path,
             "neighbors": []
         }
-        print(step_info)
         if current_city == goal_city:
             steps_log.append(step_info)
             return path, cost_so_far, explored, steps_log
@@ -408,7 +413,6 @@ def a_star_search_adaptive(start_city, goal_city): # Nah, I'd adapt - "Mahoraga"
                     "alpha": round(alpha_neighbor * 100, 1),
                     "beta": round(beta_neighbor * 100, 1)
                 })
-                print(step_info)
         
         steps_log.append(step_info)
     
@@ -479,31 +483,42 @@ def run_search(req: SearchRequest):
     if start not in romania_map or goal not in romania_map:
         return {"error": "Invalid start or goal city"}
 
-    timer_start = time.perf_counter()
+    search_functions = {
+        "BFS": BFS,
+        "DFS": DFS,
+        "Greedy": greedy_best_first_search,
+        "A*": a_star_search,
+        "HubAndSpoke": hub_and_spoke_search,
+        "Cheby_A_Star": a_star_search_adaptive,
+    }
+    search_function = search_functions.get(algo)
 
-    if algo == "BFS":
-        final_path, cost, steps, steps_log = BFS(start, goal)
-    elif algo == "DFS":
-        final_path, cost, steps, steps_log = DFS(start, goal)
-    elif algo == "Greedy":
-        final_path, cost, steps, steps_log = greedy_best_first_search(start, goal)
-    elif algo == "A*":
-        final_path, cost, steps, steps_log = a_star_search(start, goal)
-    elif algo == "HubAndSpoke":
-        final_path, cost, steps, steps_log = hub_and_spoke_search(start, goal)
-    elif algo == "Cheby_A_Star":
-        final_path, cost, steps, steps_log = a_star_search_adaptive(start, goal)
-    else:
+    if search_function is None:
         return {"error": "Invalid algorithm name"}
 
-    time_elapsed = time.perf_counter() - timer_start
+    with search_metrics_lock:
+        tracemalloc.start()
+        timer_start = time.perf_counter()
+
+        try:
+            final_path, cost, steps, steps_log = search_function(start, goal)
+        finally:
+            time_elapsed = time.perf_counter() - timer_start
+            _, peak_memory_bytes = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+
+    execution_time_ms = time_elapsed * 1000
+    peak_memory_kb = peak_memory_bytes / 1024
+
     return {
         "algorithm": algo,
         "path": final_path,
         "cost": cost,
         "steps": steps,
         "steps_log": steps_log,
-        "execution_time": f"{time_elapsed:.6f} s"
+        "execution_time": f"{time_elapsed:.6f} s",
+        "execution_time_ms": round(execution_time_ms, 6),
+        "peak_memory_kb": round(peak_memory_kb, 3),
     }
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ const jockey_one = Jockey_One({
 });
 
 interface SearcherProps {
-  cityNames?: string[];
+  cityNames?: readonly string[];
   onCitySelect?: (city: string) => void;
 }
 

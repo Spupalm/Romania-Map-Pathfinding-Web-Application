@@ -21,6 +21,12 @@ cd Romania-Map-Pathfinding-Web-Application
 
 `.env` is **not** included in this repo — it's shared separately in Discord. Add it to the project root before running the backend.
 
+For authentication and saved routes, copy `romania_frontend/.env.example` to
+`romania_frontend/.env.local` and fill in the Supabase URL and publishable key.
+Then run `supabase/migrations/202609030001_create_saved_routes.sql` in the
+Supabase SQL editor (or with the Supabase CLI). The migration creates the table,
+indexes, and Row Level Security policies that isolate every user's records.
+
 ### Install dependencies
 
 **Backend:**
@@ -75,4 +81,6 @@ Romania-Map-Pathfinding-Web-Application/
 - Select any start and destination city on an interactive map of Romania
 - Compare a blind search algorithm against a custom heuristic search algorithm
 - View execution time, memory usage, and path cost side by side
-- View search history of previous queries
+- Optionally save a completed run for the signed-in user
+- Reload saved route configuration, ordered workflow steps, algorithm, path
+  cost, execution time, and peak Python memory from the History page
