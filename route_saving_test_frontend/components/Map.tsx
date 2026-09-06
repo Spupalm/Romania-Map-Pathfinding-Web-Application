@@ -1,32 +1,10 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import type { CityName, WorkflowStep } from "../lib/pathfinding";
 
-/* ============================================================
-   CITY TYPES
-   ============================================================ */
-
-export type CityName =
-  | "Arad"
-  | "Zerind"
-  | "Oradea"
-  | "Sibiu"
-  | "Timisoara"
-  | "Lugoj"
-  | "Mehadia"
-  | "Drobeta"
-  | "Craiova"
-  | "Rimnicu Vilcea"
-  | "Fagaras"
-  | "Pitesti"
-  | "Bucharest"
-  | "Giurgiu"
-  | "Urziceni"
-  | "Hirsova"
-  | "Eforie"
-  | "Vaslui"
-  | "Iasi"
-  | "Neamt";
+export { CITY_NAMES } from "../lib/pathfinding";
+export type { CityName } from "../lib/pathfinding";
 
 interface CityPosition {
   x: number;
@@ -299,12 +277,6 @@ const edges: Edge[] = [
 ];
 
 /* ============================================================
-   EXPORTED CITY NAME LIST
-   ============================================================ */
-
-export const CITY_NAMES = Object.keys(cities) as CityName[];
-
-/* ============================================================
    HELPERS
    ============================================================ */
 
@@ -336,6 +308,14 @@ interface MapProps {
 
   path?: CityName[];
 
+  pathCostKm?: number | null;
+
+  executionTimeMs?: number | null;
+
+  peakMemoryKb?: number | null;
+
+  workflowSteps?: WorkflowStep[];
+
   showDistances?: boolean;
 
   showCityNames?: boolean;
@@ -347,6 +327,8 @@ interface MapProps {
   onGoalCityChange?: (
     city: CityName
   ) => void;
+
+  onRouteChange?: () => void;
 
   /*
    * City selected from Navbar search.
@@ -362,11 +344,19 @@ interface MapProps {
    ============================================================ */
 
 export default function Map({
-  startCity: initialStartCity = "Arad",
+  startCity = "Arad",
 
-  goalCity: initialGoalCity = "Bucharest",
+  goalCity = "Bucharest",
 
-  path: initialPath = [],
+  path = [],
+
+  pathCostKm = null,
+
+  executionTimeMs = null,
+
+  peakMemoryKb = null,
+
+  workflowSteps = [],
 
   showDistances = true,
 
@@ -376,81 +366,16 @@ export default function Map({
 
   onGoalCityChange,
 
+  onRouteChange,
+
   searchedCity = null,
 }: MapProps) {
   /* ==========================================================
      STATE
      ========================================================== */
 
-  const [startCity, setStartCity] =
-    useState<CityName>(initialStartCity);
-
-  const [goalCity, setGoalCity] =
-    useState<CityName>(initialGoalCity);
-
-  const [path, setPath] =
-    useState<CityName[]>(initialPath);
-
   const [zoom, setZoom] =
     useState(1);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  /* ==========================================================
-     KEEP START CITY IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    if (initialStartCity !== startCity) {
-      setStartCity(initialStartCity);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialStartCity]);
-
-  /* ==========================================================
-     KEEP GOAL CITY IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    if (initialGoalCity !== goalCity) {
-      setGoalCity(initialGoalCity);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialGoalCity]);
-
-  /* ==========================================================
-     KEEP PATH IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    setPath(initialPath);
-  }, [initialPath]);
-
-  /* ==========================================================
-     SEND START CITY TO PARENT
-     ========================================================== */
-
-  React.useEffect(() => {
-    onStartCityChange?.(startCity);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startCity]);
-
-  /* ==========================================================
-     SEND GOAL CITY TO PARENT
-     ========================================================== */
-
-  React.useEffect(() => {
-    onGoalCityChange?.(goalCity);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goalCity]);
 
   /* ==========================================================
      PATH EDGES
@@ -497,81 +422,6 @@ export default function Map({
   }, [path]);
 
   /* ==========================================================
-     RUN ALGORITHM
-     ========================================================== */
-
-  async function runAlgorithm() {
-    if (startCity === goalCity) {
-      setError(
-        "Start and End cities cannot be the same."
-      );
-
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-    setPath([]);
-
-    try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ??
-        "http://127.0.0.1:8000";
-
-      const response = await fetch(
-        `${apiUrl}/api/search`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            start: startCity,
-
-            goal: goalCity,
-
-            algorithm: "BFS",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Server returned ${response.status}`
-        );
-      }
-
-      const data =
-        await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (
-        Array.isArray(data.path)
-      ) {
-        setPath(
-          data.path as CityName[]
-        );
-      } else {
-        setPath([]);
-      }
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Could not connect to the pathfinding server."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /* ==========================================================
      CITY CLICK
      ========================================================== */
 
@@ -593,11 +443,11 @@ export default function Map({
      */
 
     if (city === goalCity) {
-      setGoalCity(startCity);
+      onGoalCityChange?.(startCity);
 
-      setStartCity(city);
+      onStartCityChange?.(city);
 
-      setPath([]);
+      onRouteChange?.();
 
       return;
     }
@@ -608,9 +458,9 @@ export default function Map({
      */
 
     if (startCity && goalCity) {
-      setGoalCity(city);
+      onGoalCityChange?.(city);
 
-      setPath([]);
+      onRouteChange?.();
 
       return;
     }
@@ -619,9 +469,9 @@ export default function Map({
      * Otherwise set Start.
      */
 
-    setStartCity(city);
+    onStartCityChange?.(city);
 
-    setPath([]);
+    onRouteChange?.();
   }
 
   /* ==========================================================
@@ -1227,40 +1077,6 @@ export default function Map({
       </div>
 
       {/* ======================================================
-          ERROR
-          ====================================================== */}
-
-      {error && (
-        <div
-          style={{
-            position: "absolute",
-
-            top: "24px",
-
-            right: "24px",
-
-            padding:
-              "12px 18px",
-
-            borderRadius: "12px",
-
-            background:
-              "rgba(180,40,40,0.95)",
-
-            color: "white",
-
-            fontSize: "14px",
-
-            fontWeight: 700,
-
-            zIndex: 30,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* ======================================================
           PATH INFORMATION
           ====================================================== */}
 
@@ -1365,9 +1181,35 @@ export default function Map({
             </span>
 
             <strong>
-              {totalDistance} km
+              {pathCostKm ?? totalDistance} km
             </strong>
           </div>
+
+          {executionTimeMs !== null && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "7px",
+              }}
+            >
+              <span>Execution</span>
+              <strong>{executionTimeMs.toFixed(3)} ms</strong>
+            </div>
+          )}
+
+          {peakMemoryKb !== null && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "14px",
+              }}
+            >
+              <span>Peak memory</span>
+              <strong>{peakMemoryKb.toFixed(2)} KiB</strong>
+            </div>
+          )}
 
           <div
             style={{
@@ -1439,6 +1281,35 @@ export default function Map({
               )
             )}
           </div>
+
+          {workflowSteps.length > 0 && (
+            <details style={{ marginTop: "14px" }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: 800,
+                }}
+              >
+                Workflow steps ({workflowSteps.length})
+              </summary>
+              <ol
+                style={{
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  margin: "8px 0 0",
+                  paddingLeft: "22px",
+                  fontSize: "12px",
+                }}
+              >
+                {workflowSteps.map((step) => (
+                  <li key={`${step.step}-${step.expanded_node}`}>
+                    {step.expanded_node}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
         </div>
       )}
     </div>

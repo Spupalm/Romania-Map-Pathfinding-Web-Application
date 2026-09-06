@@ -3,6 +3,8 @@
 import { useRouter, usePathname } from "next/navigation";
 import { Jaro } from "next/font/google";
 import { Jockey_One } from "next/font/google";
+import { createClient } from "../lib/supabase/client";
+import { isSupabaseConfigured } from "../lib/supabase/config";
 
 const jaro = Jaro({
   subsets: ["latin"],
@@ -143,8 +145,12 @@ export default function Sidebar() {
           ============================================================ */}
 
       <button
-        onClick={() => {
-          console.log("Logout");
+        onClick={async () => {
+          if (isSupabaseConfigured) {
+            await createClient().auth.signOut();
+          }
+          router.push("/auth");
+          router.refresh();
         }}
         style={{
           marginTop: "auto",

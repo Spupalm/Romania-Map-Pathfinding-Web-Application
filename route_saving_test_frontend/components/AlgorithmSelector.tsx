@@ -36,8 +36,8 @@ interface MapControlsProps {
   goalCity?: CityName;
   selectedAlgorithm?: string;
 
-  cityNames?: CityName[];
-  algorithms?: string[];
+  cityNames?: readonly CityName[];
+  algorithms?: readonly string[];
 
   onStartCityChange?: (city: CityName) => void;
   onGoalCityChange?: (city: CityName) => void;
@@ -47,6 +47,13 @@ interface MapControlsProps {
 
   onSearch?: () => void;
   onReset?: () => void;
+
+  showSaveControl?: boolean;
+  saveEnabled?: boolean;
+  canSave?: boolean;
+  isRunning?: boolean;
+  onSaveEnabledChange?: (enabled: boolean) => void;
+  onSignIn?: () => void;
 
   /*
    * normal:
@@ -78,6 +85,13 @@ export default function AlgorithmSelector({
 
   onSearch,
   onReset,
+
+  showSaveControl = false,
+  saveEnabled = false,
+  canSave = false,
+  isRunning = false,
+  onSaveEnabledChange,
+  onSignIn,
 
   position = "normal",
 }: MapControlsProps) {
@@ -364,17 +378,65 @@ export default function AlgorithmSelector({
 
           <div style={actionRowStyle}>
 
+            {showSaveControl && (
+              <label
+                className={jersey25.className}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "white",
+                  fontSize: "17px",
+                  cursor: canSave ? "pointer" : "default",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={saveEnabled}
+                  disabled={!canSave || isRunning}
+                  onChange={(event) =>
+                    onSaveEnabledChange?.(event.target.checked)
+                  }
+                  style={{ width: "18px", height: "18px" }}
+                />
+                Save this run
+              </label>
+            )}
+
+            {showSaveControl && !canSave && (
+              <button
+                type="button"
+                onClick={onSignIn}
+                className={jersey25.className}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "white",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: "15px",
+                }}
+              >
+                Sign in to save
+              </button>
+            )}
+
             {/* SEARCH */}
 
             <button
               type="button"
+              disabled={isRunning}
               onClick={() => {
                 onSearch?.();
               }}
               className={jersey25.className}
-              style={searchButtonStyle}
+              style={{
+                ...searchButtonStyle,
+                opacity: isRunning ? 0.65 : 1,
+                cursor: isRunning ? "wait" : "pointer",
+              }}
             >
-              Search
+              {isRunning ? "Running..." : "Run"}
             </button>
 
             {/* RESET */}
@@ -436,6 +498,8 @@ const actionRowStyle: React.CSSProperties = {
   display: "flex",
 
   alignItems: "center",
+
+  flexWrap: "wrap",
 
   gap: "10px",
 
