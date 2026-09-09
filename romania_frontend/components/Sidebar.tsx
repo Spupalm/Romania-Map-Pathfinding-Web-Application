@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { Jaro } from "next/font/google";
 import { Jockey_One } from "next/font/google";
+import { createClient } from "../lib/supabase/client";
 
 const jaro = Jaro({
   subsets: ["latin"],
@@ -36,6 +37,14 @@ export default function Sidebar() {
       path: "/Compare_page",
     },
   ];
+
+  async function handleLogout() {
+    const supabase = createClient();
+
+    await supabase.auth.signOut();
+
+    router.push("/login/index.html");
+  }
 
   return (
     <aside
@@ -143,9 +152,7 @@ export default function Sidebar() {
           ============================================================ */}
 
       <button
-        onClick={() => {
-          console.log("Logout");
-        }}
+        onClick={handleLogout}
         style={{
           marginTop: "auto",
           marginBottom: "25px",

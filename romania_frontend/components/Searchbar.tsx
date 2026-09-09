@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Jockey_One } from "next/font/google";
+import { createClient } from "../lib/supabase/client";
 
 const jockey_one = Jockey_One({
   subsets: ["latin"],
@@ -20,12 +21,65 @@ export default function Searcher({
   const [searchValue, setSearchValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Filter cities
+  // Logged-in username
+  const [username, setUsername] = useState("User");
+
+  // =====================================================
+  // GET LOGGED-IN USERNAME
+  // =====================================================
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function getUsername() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const name = user.user_metadata?.username;
+
+        if (name) {
+          setUsername(name);
+        }
+      }
+    }
+
+    getUsername();
+
+    // Keep username updated if authentication changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const name = session.user.user_metadata?.username;
+
+        if (name) {
+          setUsername(name);
+        }
+      } else {
+        setUsername("User");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // =====================================================
+  // FILTER CITIES
+  // =====================================================
+
   const filteredCities = cityNames
     .filter((city) =>
       city.toLowerCase().includes(searchValue.toLowerCase())
     )
     .slice(0, 6);
+
+  // =====================================================
+  // SEARCH BAR
+  // =====================================================
 
   function handleSearchChange(value: string) {
     setSearchValue(value);
@@ -47,14 +101,17 @@ export default function Searcher({
   function handleSearch() {
     const city = cityNames.find(
       (item) =>
-        item.toLowerCase() ===
-        searchValue.trim().toLowerCase()
+        item.toLowerCase() === searchValue.trim().toLowerCase()
     );
 
     if (city) {
       handleCitySelect(city);
     }
   }
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
     <header
@@ -90,8 +147,7 @@ export default function Searcher({
             alignItems: "center",
             padding: "0 8px 0 14px",
             boxSizing: "border-box",
-            boxShadow:
-              "0 2px 4px rgba(0,0,0,0.15)",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
           }}
         >
           <input
@@ -128,7 +184,9 @@ export default function Searcher({
             }}
           />
 
-          {/* SEARCH ICON */}
+          {/* =================================================
+              SEARCH ICON
+              ================================================= */}
 
           <button
             type="button"
@@ -170,8 +228,7 @@ export default function Searcher({
                 background: "white",
                 borderRadius: "10px",
                 overflow: "hidden",
-                boxShadow:
-                  "0 5px 15px rgba(0,0,0,0.25)",
+                boxShadow: "0 5px 15px rgba(0,0,0,0.25)",
                 zIndex: 100,
               }}
             >
@@ -226,20 +283,9 @@ export default function Searcher({
           marginRight: "0px",
         }}
       >
-        {/* USER CIRCLE */}
 
-        <div
-          style={{
-            width: "50px",
-            height: "50px",
-            borderRadius: "100%",
-            background: "#fbf7ee",
-            boxShadow:
-              "0 2px 4px rgba(0,0,0,0.15)",
-          }}
-        />
 
-        {/* USER TEXT */}
+        {/* USERNAME */}
 
         <span
           className={jockey_one.className}
@@ -248,7 +294,7 @@ export default function Searcher({
             fontSize: "32px",
           }}
         >
-          User
+          {username}
         </span>
 
         {/* DROPDOWN ARROW */}
@@ -260,7 +306,7 @@ export default function Searcher({
             marginLeft: "12px",
           }}
         >
-         ⌄
+          ⌄
         </span>
       </div>
     </header>

@@ -499,25 +499,52 @@ export default function Navbar({
       </div>
 
       {/* ============================================================
-          PROFILE
-          ============================================================ */}
+    PROFILE
+    ============================================================ */}
 
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          background: "#fbf7ee",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {/* User icon can be added here */}
-      </div>
+<div
+  onClick={() => {
+    window.location.href = "/login/index.html";
+  }}
+  title="Login"
+  style={{
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    background: "#fbf7ee",
+
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+
+    flexShrink: 0,
+
+    position: "relative",
+    zIndex: 1,
+
+    cursor: "pointer",
+
+    transition: "transform 0.2s",
+  }}
+
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.1)";
+  }}
+
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+  }}
+>
+  <span
+    style={{
+      fontSize: 20,
+      lineHeight: 1,
+    }}
+  >
+    👤
+  </span>
+</div>
     </div>
+       
   );
 }

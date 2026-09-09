@@ -1,10 +1,33 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-/* ============================================================
-   CITY TYPES
-   ============================================================ */
+export type AlgorithmName =
+  | "BFS"
+  | "DFS"
+  | "Greedy"
+  | "A*"
+  | "HubAndSpoke"
+  | "Cheby_A_Star";
+
+export function getAlgorithmColor(algorithm?: string): string {
+  switch (algorithm) {
+    case "BFS":
+      return "#3B82F6";
+    case "DFS":
+      return "#EF4444";
+    case "Greedy":
+      return "#F97316";
+    case "A*":
+      return "#22C55E";
+    case "HubAndSpoke":
+      return "#A855F7";
+    case "Cheby_A_Star":
+      return "#06B6D4";
+    default:
+      return "#FFCF45";
+  }
+}
 
 export type CityName =
   | "Arad"
@@ -28,1419 +51,577 @@ export type CityName =
   | "Iasi"
   | "Neamt";
 
-interface CityPosition {
-  x: number;
-  y: number;
-}
-
-interface Edge {
-  from: CityName;
-  to: CityName;
-  distance: number;
-}
-
-/* ============================================================
-   CITY POSITIONS
-   Based on your 1661 x 934 map
-   ============================================================ */
-
-const cities: Record<CityName, CityPosition> = {
-  Oradea: {
-    x: 510,
-    y: 157,
-  },
-
-  Zerind: {
-    x: 467,
-    y: 265,
-  },
-
-  Arad: {
-    x: 436,
-    y: 380,
-  },
-
-  Timisoara: {
-    x: 444,
-    y: 540,
-  },
-
-  Lugoj: {
-    x: 570,
-    y: 615,
-  },
-
-  Mehadia: {
-    x: 580,
-    y: 700,
-  },
-
-  Drobeta: {
-    x: 575,
-    y: 790,
-  },
-
-  Craiova: {
-    x: 735,
-    y: 800,
-  },
-
-  Sibiu: {
-    x: 650,
-    y: 445,
-  },
-
-  "Rimnicu Vilcea": {
-    x: 700,
-    y: 535,
-  },
-
-  Fagaras: {
-    x: 835,
-    y: 440,
-  },
-
-  Pitesti: {
-    x: 860,
-    y: 615,
-  },
-
-  Bucharest: {
-    x: 1010,
-    y: 705,
-  },
-
-  Giurgiu: {
-    x: 795,
-    y: 850,
-  },
-
-  Urziceni: {
-    x: 1115,
-    y: 650,
-  },
-
-  Hirsova: {
-    x: 1255,
-    y: 650,
-  },
-
-  Eforie: {
-    x: 1305,
-    y: 780,
-  },
-
-  Vaslui: {
-    x: 1210,
-    y: 475,
-  },
-
-  Iasi: {
-    x: 1145,
-    y: 360,
-  },
-
-  Neamt: {
-    x: 1020,
-    y: 300,
-  },
+export type MapRoute = {
+  id: string;
+  path: CityName[];
+  algorithm: AlgorithmName;
 };
 
-/* ============================================================
-   ROMANIA GRAPH
-   ============================================================ */
+const cities: Record<CityName, { x: number; y: number }> = {
+  Oradea: { x: 510, y: 157 },
+  Zerind: { x: 467, y: 265 },
+  Arad: { x: 436, y: 380 },
+  Timisoara: { x: 444, y: 540 },
+  Lugoj: { x: 570, y: 615 },
+  Mehadia: { x: 580, y: 700 },
+  Drobeta: { x: 575, y: 790 },
+  Craiova: { x: 735, y: 800 },
+  Sibiu: { x: 650, y: 445 },
+  "Rimnicu Vilcea": { x: 700, y: 535 },
+  Fagaras: { x: 835, y: 440 },
+  Pitesti: { x: 860, y: 615 },
+  Bucharest: { x: 1010, y: 705 },
+  Giurgiu: { x: 795, y: 850 },
+  Urziceni: { x: 1115, y: 650 },
+  Hirsova: { x: 1255, y: 650 },
+  Eforie: { x: 1305, y: 780 },
+  Vaslui: { x: 1210, y: 475 },
+  Iasi: { x: 1145, y: 360 },
+  Neamt: { x: 1020, y: 300 },
+};
 
-const edges: Edge[] = [
-  // Western area
-
-  {
-    from: "Arad",
-    to: "Zerind",
-    distance: 75,
-  },
-
-  {
-    from: "Zerind",
-    to: "Oradea",
-    distance: 71,
-  },
-
-  {
-    from: "Oradea",
-    to: "Sibiu",
-    distance: 151,
-  },
-
-  {
-    from: "Arad",
-    to: "Sibiu",
-    distance: 140,
-  },
-
-  {
-    from: "Arad",
-    to: "Timisoara",
-    distance: 118,
-  },
-
-  {
-    from: "Timisoara",
-    to: "Lugoj",
-    distance: 111,
-  },
-
-  {
-    from: "Lugoj",
-    to: "Mehadia",
-    distance: 70,
-  },
-
-  {
-    from: "Mehadia",
-    to: "Drobeta",
-    distance: 75,
-  },
-
-  {
-    from: "Drobeta",
-    to: "Craiova",
-    distance: 120,
-  },
-
-  // Center
-
-  {
-    from: "Sibiu",
-    to: "Rimnicu Vilcea",
-    distance: 80,
-  },
-
-  {
-    from: "Sibiu",
-    to: "Fagaras",
-    distance: 99,
-  },
-
-  {
-    from: "Rimnicu Vilcea",
-    to: "Craiova",
-    distance: 146,
-  },
-
-  {
-    from: "Rimnicu Vilcea",
-    to: "Pitesti",
-    distance: 97,
-  },
-
-  {
-    from: "Craiova",
-    to: "Pitesti",
-    distance: 138,
-  },
-
-  // Bucharest
-
-  {
-    from: "Fagaras",
-    to: "Bucharest",
-    distance: 211,
-  },
-
-  {
-    from: "Pitesti",
-    to: "Bucharest",
-    distance: 101,
-  },
-
-  {
-    from: "Bucharest",
-    to: "Giurgiu",
-    distance: 90,
-  },
-
-  {
-    from: "Bucharest",
-    to: "Urziceni",
-    distance: 85,
-  },
-
-  // East
-
-  {
-    from: "Urziceni",
-    to: "Hirsova",
-    distance: 98,
-  },
-
-  {
-    from: "Hirsova",
-    to: "Eforie",
-    distance: 86,
-  },
-
-  {
-    from: "Urziceni",
-    to: "Vaslui",
-    distance: 142,
-  },
-
-  {
-    from: "Vaslui",
-    to: "Iasi",
-    distance: 92,
-  },
-
-  {
-    from: "Iasi",
-    to: "Neamt",
-    distance: 87,
-  },
+const edges: [CityName, CityName, number][] = [
+  ["Arad", "Zerind", 75],
+  ["Zerind", "Oradea", 71],
+  ["Oradea", "Sibiu", 151],
+  ["Arad", "Sibiu", 140],
+  ["Arad", "Timisoara", 118],
+  ["Timisoara", "Lugoj", 111],
+  ["Lugoj", "Mehadia", 70],
+  ["Mehadia", "Drobeta", 75],
+  ["Drobeta", "Craiova", 120],
+  ["Sibiu", "Rimnicu Vilcea", 80],
+  ["Sibiu", "Fagaras", 99],
+  ["Rimnicu Vilcea", "Craiova", 146],
+  ["Rimnicu Vilcea", "Pitesti", 97],
+  ["Craiova", "Pitesti", 138],
+  ["Fagaras", "Bucharest", 211],
+  ["Pitesti", "Bucharest", 101],
+  ["Bucharest", "Giurgiu", 90],
+  ["Bucharest", "Urziceni", 85],
+  ["Urziceni", "Hirsova", 98],
+  ["Hirsova", "Eforie", 86],
+  ["Urziceni", "Vaslui", 142],
+  ["Vaslui", "Iasi", 92],
+  ["Iasi", "Neamt", 87],
 ];
-
-/* ============================================================
-   EXPORTED CITY NAME LIST
-   ============================================================ */
 
 export const CITY_NAMES = Object.keys(cities) as CityName[];
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
-
 function edgeKey(a: CityName, b: CityName) {
-  return [a, b].sort().join("-");
+  return [a, b].sort().join("|");
 }
 
-function getEdgeDistance(
-  a: CityName,
-  b: CityName
-) {
-  const edge = edges.find(
-    (item) =>
-      edgeKey(item.from, item.to) ===
-      edgeKey(a, b)
-  );
+const roadKeys = new Set(edges.map(([a, b]) => edgeKey(a, b)));
 
-  return edge?.distance ?? 0;
+export function isValidRoutePath(value: unknown): value is CityName[] {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every(
+      (city) =>
+        typeof city === "string" &&
+        CITY_NAMES.includes(city as CityName),
+    )
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < value.length - 1; index++) {
+    if (!roadKeys.has(edgeKey(value[index], value[index + 1]))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
-/* ============================================================
-   PROPS
-   ============================================================ */
+export function getRoadDistance(
+  from: string,
+  to: string,
+): number | undefined {
+  return edges.find(
+    ([a, b]) =>
+      (a === from && b === to) ||
+      (a === to && b === from),
+  )?.[2];
+}
 
 interface MapProps {
   startCity?: CityName;
-
   goalCity?: CityName;
-
   path?: CityName[];
-
+  algorithm?: AlgorithmName;
+  routes?: MapRoute[];
   showDistances?: boolean;
-
   showCityNames?: boolean;
-
-  onStartCityChange?: (
-    city: CityName
-  ) => void;
-
-  onGoalCityChange?: (
-    city: CityName
-  ) => void;
-
-  /*
-   * City selected from Navbar search.
-   *
-   * This DOES NOT change the Start or End city.
-   * It only highlights the searched city.
-   */
   searchedCity?: CityName | null;
+  onStartCityChange?: (city: CityName) => void;
+  onGoalCityChange?: (city: CityName) => void;
+  onRoutesClick?: (routes: MapRoute[]) => void;
 }
 
-/* ============================================================
-   MAP COMPONENT
-   ============================================================ */
+const EMPTY_PATH: CityName[] = [];
+const EMPTY_ROUTES: MapRoute[] = [];
 
 export default function Map({
-  startCity: initialStartCity = "Arad",
-
-  goalCity: initialGoalCity = "Bucharest",
-
-  path: initialPath = [],
-
+  startCity = "Arad",
+  goalCity = "Bucharest",
+  path = EMPTY_PATH,
+  algorithm = "DFS",
+  routes = EMPTY_ROUTES,
   showDistances = true,
-
   showCityNames = true,
-
-  onStartCityChange,
-
-  onGoalCityChange,
-
   searchedCity = null,
+  onStartCityChange,
+  onGoalCityChange,
+  onRoutesClick,
 }: MapProps) {
-  /* ==========================================================
-     STATE
-     ========================================================== */
+  const [zoom, setZoom] = useState(1);
 
-  const [startCity, setStartCity] =
-    useState<CityName>(initialStartCity);
+  const layers = useMemo(() => {
+    const edgeAlgorithms = new globalThis.Map<
+      string,
+      Set<AlgorithmName>
+    >();
 
-  const [goalCity, setGoalCity] =
-    useState<CityName>(initialGoalCity);
+    const cityAlgorithms = new globalThis.Map<
+      CityName,
+      Set<AlgorithmName>
+    >();
 
-  const [path, setPath] =
-    useState<CityName[]>(initialPath);
+    const savedByEdge = new globalThis.Map<
+      string,
+      globalThis.Map<AlgorithmName, MapRoute[]>
+    >();
 
-  const [zoom, setZoom] =
-    useState(1);
+    function addRoute(route: MapRoute, saved: boolean) {
+      if (!isValidRoutePath(route.path)) return;
 
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  /* ==========================================================
-     KEEP START CITY IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    if (initialStartCity !== startCity) {
-      setStartCity(initialStartCity);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialStartCity]);
-
-  /* ==========================================================
-     KEEP GOAL CITY IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    if (initialGoalCity !== goalCity) {
-      setGoalCity(initialGoalCity);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialGoalCity]);
-
-  /* ==========================================================
-     KEEP PATH IN SYNC
-     ========================================================== */
-
-  React.useEffect(() => {
-    setPath(initialPath);
-  }, [initialPath]);
-
-  /* ==========================================================
-     SEND START CITY TO PARENT
-     ========================================================== */
-
-  React.useEffect(() => {
-    onStartCityChange?.(startCity);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startCity]);
-
-  /* ==========================================================
-     SEND GOAL CITY TO PARENT
-     ========================================================== */
-
-  React.useEffect(() => {
-    onGoalCityChange?.(goalCity);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goalCity]);
-
-  /* ==========================================================
-     PATH EDGES
-     ========================================================== */
-
-  const pathEdges = useMemo(() => {
-    const result = new Set<string>();
-
-    for (
-      let i = 0;
-      i < path.length - 1;
-      i++
-    ) {
-      result.add(
-        edgeKey(
-          path[i],
-          path[i + 1]
-        )
-      );
-    }
-
-    return result;
-  }, [path]);
-
-  /* ==========================================================
-     TOTAL DISTANCE
-     ========================================================== */
-
-  const totalDistance = useMemo(() => {
-    let total = 0;
-
-    for (
-      let i = 0;
-      i < path.length - 1;
-      i++
-    ) {
-      total += getEdgeDistance(
-        path[i],
-        path[i + 1]
-      );
-    }
-
-    return total;
-  }, [path]);
-
-  /* ==========================================================
-     RUN ALGORITHM
-     ========================================================== */
-
-  async function runAlgorithm() {
-    if (startCity === goalCity) {
-      setError(
-        "Start and End cities cannot be the same."
-      );
-
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-    setPath([]);
-
-    try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ??
-        "http://127.0.0.1:8000";
-
-      const response = await fetch(
-        `${apiUrl}/api/search`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            start: startCity,
-
-            goal: goalCity,
-
-            algorithm: "BFS",
-          }),
+      for (const city of route.path) {
+        if (!cityAlgorithms.has(city)) {
+          cityAlgorithms.set(city, new Set());
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(
-          `Server returned ${response.status}`
-        );
+        cityAlgorithms.get(city)!.add(route.algorithm);
       }
 
-      const data =
-        await response.json();
+      const visitedEdges = new Set<string>();
 
-      if (data.error) {
-        throw new Error(data.error);
+      for (let index = 0; index < route.path.length - 1; index++) {
+        const key = edgeKey(route.path[index], route.path[index + 1]);
+
+        if (visitedEdges.has(key)) continue;
+        visitedEdges.add(key);
+
+        if (!edgeAlgorithms.has(key)) {
+          edgeAlgorithms.set(key, new Set());
+        }
+
+        edgeAlgorithms.get(key)!.add(route.algorithm);
+
+        if (saved) {
+          if (!savedByEdge.has(key)) {
+            savedByEdge.set(key, new globalThis.Map());
+          }
+
+          const byAlgorithm = savedByEdge.get(key)!;
+          const matches = byAlgorithm.get(route.algorithm) ?? [];
+
+          matches.push(route);
+          byAlgorithm.set(route.algorithm, matches);
+        }
       }
-
-      if (
-        Array.isArray(data.path)
-      ) {
-        setPath(
-          data.path as CityName[]
-        );
-      } else {
-        setPath([]);
-      }
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Could not connect to the pathfinding server."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /* ==========================================================
-     CITY CLICK
-     ========================================================== */
-
-  function handleCityClick(
-    city: CityName
-  ) {
-    /*
-     * If clicking the current Start city,
-     * do nothing.
-     */
-
-    if (city === startCity) {
-      return;
     }
 
-    /*
-     * If clicking the current Goal city,
-     * swap Start and Goal.
-     */
+    routes.forEach((route) => addRoute(route, true));
+
+    if (path.length) {
+      addRoute(
+        {
+          id: "current-search",
+          path,
+          algorithm,
+        },
+        false,
+      );
+    }
+
+    return {
+      edgeAlgorithms,
+      cityAlgorithms,
+      savedByEdge,
+    };
+  }, [routes, path, algorithm]);
+
+  function handleCityClick(city: CityName) {
+    if (city === startCity) return;
 
     if (city === goalCity) {
-      setGoalCity(startCity);
-
-      setStartCity(city);
-
-      setPath([]);
-
+      onStartCityChange?.(city);
+      onGoalCityChange?.(startCity);
       return;
     }
 
-    /*
-     * If both Start and Goal already exist,
-     * change the Goal city.
-     */
-
-    if (startCity && goalCity) {
-      setGoalCity(city);
-
-      setPath([]);
-
-      return;
-    }
-
-    /*
-     * Otherwise set Start.
-     */
-
-    setStartCity(city);
-
-    setPath([]);
+    onGoalCityChange?.(city);
   }
-
-  /* ==========================================================
-     ZOOM
-     ========================================================== */
-
-  function zoomIn() {
-    setZoom((value) =>
-      Math.min(value + 0.1, 2)
-    );
-  }
-
-  function zoomOut() {
-    setZoom((value) =>
-      Math.max(value - 0.1, 0.6)
-    );
-  }
-
-  function resetZoom() {
-    setZoom(1);
-  }
-
-  /* ==========================================================
-     RENDER
-     ========================================================== */
 
   return (
-    <div
-      style={{
-        position: "relative",
-
-        width: "100%",
-
-        maxWidth: "1661px",
-
-        margin: "0 auto",
-
-        borderRadius: "24px",
-
-        overflow: "hidden",
-
-        background: "#4d86b2",
-
-        boxShadow:
-          "0 15px 40px rgba(0,0,0,0.20)",
-      }}
-    >
-      {/* ======================================================
-          MAP VIEWPORT
-          ====================================================== */}
-
-      <div
-        style={{
-          position: "relative",
-
-          width: "100%",
-
-          overflow: "hidden",
-        }}
-      >
-        {/* ====================================================
-            ZOOMABLE MAP
-            ==================================================== */}
-
+    <div className="map-container">
+      <div className="map-viewport">
         <div
-          style={{
-            position: "relative",
-
-            width: "100%",
-
-            transform:
-              `scale(${zoom})`,
-
-            transformOrigin:
-              "center center",
-
-            transition:
-              "transform 0.2s ease",
-          }}
+          className="map-content"
+          style={{ transform: `scale(${zoom})` }}
         >
-          {/* ==================================================
-              BACKGROUND IMAGE
-              ================================================== */}
-
           <img
             src="/images/Blankmap.png"
             alt="Romania map"
             draggable={false}
-            style={{
-              display: "block",
-
-              width: "100%",
-
-              height: "auto",
-
-              userSelect: "none",
-
-              pointerEvents: "none",
-            }}
           />
-
-          {/* ==================================================
-              SVG OVERLAY
-              ================================================== */}
 
           <svg
             viewBox="0 0 1661 934"
             preserveAspectRatio="xMidYMid meet"
-            style={{
-              position: "absolute",
-
-              inset: 0,
-
-              width: "100%",
-
-              height: "100%",
-
-              overflow: "visible",
-            }}
+            aria-label="Romania map with saved routes"
           >
-            {/* =================================================
-                ROADS
-                ================================================= */}
+            {edges.map(([from, to]) => (
+              <line
+                key={edgeKey(from, to)}
+                x1={cities[from].x}
+                y1={cities[from].y}
+                x2={cities[to].x}
+                y2={cities[to].y}
+                stroke="#f1e7ae"
+                strokeWidth={5}
+                strokeLinecap="round"
+                opacity={0.85}
+              />
+            ))}
 
-            {edges.map(
-              (edge, index) => {
-                const start =
-                  cities[edge.from];
+            {edges.map(([from, to]) => {
+              const key = edgeKey(from, to);
+              const start = cities[from];
+              const end = cities[to];
 
-                const end =
-                  cities[edge.to];
+              const algorithms = Array.from(
+                layers.edgeAlgorithms.get(key) ?? [],
+              ).sort();
 
-                const isPathEdge =
-                  pathEdges.has(
-                    edgeKey(
-                      edge.from,
-                      edge.to
-                    )
-                  );
+              const dx = end.x - start.x;
+              const dy = end.y - start.y;
+              const length = Math.hypot(dx, dy) || 1;
 
-                const middleX =
-                  (start.x +
-                    end.x) /
-                  2;
+              return algorithms.map((routeAlgorithm, index) => {
+                const offset =
+                  (index - (algorithms.length - 1) / 2) * 8;
 
-                const middleY =
-                  (start.y +
-                    end.y) /
-                  2;
+                const offsetX = (-dy / length) * offset;
+                const offsetY = (dx / length) * offset;
+
+                const matches =
+                  layers.savedByEdge.get(key)?.get(routeAlgorithm) ?? [];
+
+                const clickable =
+                  matches.length > 0 && Boolean(onRoutesClick);
+
+                function openRoutes() {
+                  if (clickable) onRoutesClick?.(matches);
+                }
 
                 return (
-                  <g
-                    key={`${edge.from}-${edge.to}-${index}`}
-                  >
-                    {/* PATH GLOW */}
-
-                    {isPathEdge && (
-                      <line
-                        x1={start.x}
-                        y1={start.y}
-                        x2={end.x}
-                        y2={end.y}
-                        stroke="#ffcf45"
-                        strokeWidth="18"
-                        strokeLinecap="round"
-                        opacity="0.35"
-                      />
-                    )}
-
-                    {/* ROAD */}
+                  <g key={`${key}-${routeAlgorithm}`}>
+                    <line
+                      x1={start.x + offsetX}
+                      y1={start.y + offsetY}
+                      x2={end.x + offsetX}
+                      y2={end.y + offsetY}
+                      stroke={getAlgorithmColor(routeAlgorithm)}
+                      strokeWidth={algorithms.length === 1 ? 9 : 5}
+                      strokeLinecap="round"
+                      pointerEvents="none"
+                    />
 
                     <line
-                      x1={start.x}
-                      y1={start.y}
-                      x2={end.x}
-                      y2={end.y}
-                      stroke={
-                        isPathEdge
-                          ? "#ffcf45"
-                          : "#f1e7ae"
-                      }
-                      strokeWidth={
-                        isPathEdge
-                          ? 9
-                          : 5
-                      }
-                      strokeLinecap="round"
-                      opacity={
-                        isPathEdge
-                          ? 1
-                          : 0.85
-                      }
-                    />
-
-                    {/* DISTANCE */}
-
-                    {showDistances && (
-                      <g>
-                        <rect
-                          x={
-                            middleX -
-                            18
-                          }
-                          y={
-                            middleY -
-                            17
-                          }
-                          width="36"
-                          height="28"
-                          rx="8"
-                          fill="white"
-                          opacity="0.95"
-                        />
-
-                        <text
-                          x={middleX}
-                          y={
-                            middleY +
-                            3
-                          }
-                          textAnchor="middle"
-                          fontSize="15"
-                          fontWeight="700"
-                          fill="#333"
-                        >
-                          {
-                            edge.distance
-                          }
-                        </text>
-                      </g>
-                    )}
+                      x1={start.x + offsetX}
+                      y1={start.y + offsetY}
+                      x2={end.x + offsetX}
+                      y2={end.y + offsetY}
+                      stroke="transparent"
+                      strokeWidth={algorithms.length === 1 ? 18 : 8}
+                      role={clickable ? "button" : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      aria-label={`View saved ${routeAlgorithm} routes between ${from} and ${to}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openRoutes();
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" ||
+                          event.key === " "
+                        ) {
+                          event.preventDefault();
+                          openRoutes();
+                        }
+                      }}
+                      style={{
+                        pointerEvents: clickable ? "stroke" : "none",
+                        cursor: clickable ? "pointer" : "default",
+                      }}
+                    >
+                      <title>
+                        {routeAlgorithm}: {from} → {to}
+                      </title>
+                    </line>
                   </g>
                 );
-              }
-            )}
+              });
+            })}
 
-            {/* =================================================
-                CITY NODES
-                ================================================= */}
-
-            {Object.entries(
-              cities
-            ).map(
-              ([
-                cityName,
-                position,
-              ]) => {
-                const city =
-                  cityName as CityName;
-
-                const isStart =
-                  city ===
-                  startCity;
-
-                const isGoal =
-                  city ===
-                  goalCity;
-
-                const isInPath =
-                  path.includes(
-                    city
-                  );
-
-                /*
-                 * NEW:
-                 * Is this the city searched
-                 * from the Navbar?
-                 */
-
-                const isSearched =
-                  city ===
-                  searchedCity;
+            {showDistances &&
+              edges.map(([from, to, distance]) => {
+                const x = (cities[from].x + cities[to].x) / 2;
+                const y = (cities[from].y + cities[to].y) / 2;
 
                 return (
                   <g
-                    key={city}
-                    onClick={() =>
-                      handleCityClick(
-                        city
-                      )
-                    }
-                    style={{
-                      cursor:
-                        "pointer",
-                    }}
+                    key={`distance-${edgeKey(from, to)}`}
+                    pointerEvents="none"
                   >
-                    {/* =================================================
-                        SEARCHED CITY HIGHLIGHT
-                        ================================================= */}
-
-                    {isSearched && (
-                      <>
-                        {/* Outer white ring */}
-
-                        <circle
-                          cx={
-                            position.x
-                          }
-                          cy={
-                            position.y
-                          }
-                          r="34"
-                          fill="none"
-                          stroke="white"
-                          strokeWidth="7"
-                          opacity="0.95"
-                        />
-
-                        {/* Inner yellow ring */}
-
-                        <circle
-                          cx={
-                            position.x
-                          }
-                          cy={
-                            position.y
-                          }
-                          r="27"
-                          fill="none"
-                          stroke="#ffcf45"
-                          strokeWidth="6"
-                        />
-                      </>
-                    )}
-
-                    {/* =================================================
-                        PATH RING
-                        ================================================= */}
-
-                    {isInPath && (
-                      <circle
-                        cx={
-                          position.x
-                        }
-                        cy={
-                          position.y
-                        }
-                        r="22"
-                        fill="none"
-                        stroke="#ffcf45"
-                        strokeWidth="5"
-                      />
-                    )}
-
-                    {/* =================================================
-                        SHADOW
-                        ================================================= */}
-
-                    <circle
-                      cx={
-                        position.x + 2
-                      }
-                      cy={
-                        position.y + 3
-                      }
-                      r="18"
-                      fill="rgba(0,0,0,0.25)"
-                    />
-
-                    {/* =================================================
-                        WHITE BORDER
-                        ================================================= */}
-
-                    <circle
-                      cx={
-                        position.x
-                      }
-                      cy={
-                        position.y
-                      }
-                      r="17"
+                    <rect
+                      x={x - 18}
+                      y={y - 17}
+                      width={36}
+                      height={28}
+                      rx={8}
                       fill="white"
+                      opacity={0.95}
                     />
 
-                    {/* =================================================
-                        CITY NODE
-                        ================================================= */}
-
-                    <circle
-                      cx={
-                        position.x
-                      }
-                      cy={
-                        position.y
-                      }
-                      r="12"
-                      fill={
-                        isStart
-                          ? "#22c55e"
-                          : isGoal
-                          ? "#ef4444"
-                          : "#facc15"
-                      }
-                    />
-
-                    {/* =================================================
-                        CITY NAME
-                        ================================================= */}
-
-                    {showCityNames && (
-                      <text
-                        x={
-                          position.x +
-                          23
-                        }
-                        y={
-                          position.y +
-                          6
-                        }
-                        fontSize="17"
-                        fontWeight="700"
-                        fill="white"
-                        style={{
-                          pointerEvents:
-                            "none",
-
-                          paintOrder:
-                            "stroke",
-
-                          stroke:
-                            "#263238",
-
-                          strokeWidth:
-                            5,
-
-                          strokeLinecap:
-                            "round",
-
-                          strokeLinejoin:
-                            "round",
-                        }}
-                      >
-                        {city}
-                      </text>
-                    )}
-
-                    {/* =================================================
-                        SEARCH LABEL
-                        ================================================= */}
-
-                    {isSearched && (
-                      <g
-                        pointerEvents="none"
-                      >
-                        <rect
-                          x={
-                            position.x -
-                            45
-                          }
-                          y={
-                            position.y -
-                            65
-                          }
-                          width="90"
-                          height="28"
-                          rx="10"
-                          fill="#263238"
-                          opacity="0.95"
-                        />
-
-                        <text
-                          x={
-                            position.x
-                          }
-                          y={
-                            position.y -
-                            46
-                          }
-                          textAnchor="middle"
-                          fontSize="14"
-                          fontWeight="700"
-                          fill="white"
-                        >
-                          {city}
-                        </text>
-                      </g>
-                    )}
+                    <text
+                      x={x}
+                      y={y + 3}
+                      textAnchor="middle"
+                      fontSize={15}
+                      fontWeight={700}
+                      fill="#333"
+                    >
+                      {distance}
+                    </text>
                   </g>
                 );
-              }
-            )}
+              })}
+
+            {CITY_NAMES.map((city) => {
+              const position = cities[city];
+
+              const algorithms = Array.from(
+                layers.cityAlgorithms.get(city) ?? [],
+              ).sort();
+
+              return (
+                <g
+                  key={city}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Select ${city}`}
+                  onClick={() => handleCityClick(city)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" ||
+                      event.key === " "
+                    ) {
+                      event.preventDefault();
+                      handleCityClick(city);
+                    }
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  {city === searchedCity && (
+                    <circle
+                      cx={position.x}
+                      cy={position.y}
+                      r={34}
+                      fill="none"
+                      stroke="white"
+                      strokeWidth={7}
+                    />
+                  )}
+
+                  {algorithms.map((routeAlgorithm, index) => {
+                    const circumference = 2 * Math.PI * 22;
+                    const segment = circumference / algorithms.length;
+                    const dash = Math.max(segment - 2, 1);
+
+                    return (
+                      <circle
+                        key={routeAlgorithm}
+                        cx={position.x}
+                        cy={position.y}
+                        r={22}
+                        fill="none"
+                        stroke={getAlgorithmColor(routeAlgorithm)}
+                        strokeWidth={5}
+                        strokeDasharray={
+                          algorithms.length > 1
+                            ? `${dash} ${circumference - dash}`
+                            : undefined
+                        }
+                        strokeDashoffset={-index * segment}
+                        transform={`rotate(-90 ${position.x} ${position.y})`}
+                      />
+                    );
+                  })}
+
+                  <circle
+                    cx={position.x + 2}
+                    cy={position.y + 3}
+                    r={18}
+                    fill="rgba(0,0,0,0.25)"
+                  />
+
+                  <circle
+                    cx={position.x}
+                    cy={position.y}
+                    r={17}
+                    fill="white"
+                  />
+
+                  <circle
+                    cx={position.x}
+                    cy={position.y}
+                    r={12}
+                    fill={
+                      city === startCity
+                        ? "#22c55e"
+                        : city === goalCity
+                          ? "#ef4444"
+                          : "#facc15"
+                    }
+                  />
+
+                  {showCityNames && (
+                    <text
+                      x={position.x + 23}
+                      y={position.y + 6}
+                      fontSize={17}
+                      fontWeight={700}
+                      fill="white"
+                      style={{
+                        pointerEvents: "none",
+                        paintOrder: "stroke",
+                        stroke: "#263238",
+                        strokeWidth: 5,
+                        strokeLinecap: "round",
+                        strokeLinejoin: "round",
+                      }}
+                    >
+                      {city}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </svg>
         </div>
       </div>
 
-      {/* ======================================================
-          ZOOM CONTROLS
-          ====================================================== */}
-
-      <div
-        style={{
-          position: "absolute",
-
-          left: "24px",
-
-          top: "50%",
-
-          transform:
-            "translateY(-50%)",
-
-          zIndex: 30,
-
-          display: "flex",
-
-          flexDirection:
-            "column",
-
-          borderRadius: "18px",
-
-          overflow: "hidden",
-
-          boxShadow:
-            "0 8px 20px rgba(0,0,0,0.25)",
-        }}
-      >
-        {/* ZOOM IN */}
-
+      <div className="zoom-controls">
         <button
           type="button"
-          onClick={zoomIn}
           aria-label="Zoom in"
-          style={{
-            width: "60px",
-
-            height: "60px",
-
-            border: "none",
-
-            background:
-              "rgba(190,215,235,0.95)",
-
-            color: "white",
-
-            fontSize: "34px",
-
-            cursor: "pointer",
-          }}
+          onClick={() => setZoom((value) => Math.min(value + 0.1, 2))}
         >
           +
         </button>
 
-        {/* ZOOM LEVEL */}
-
         <button
           type="button"
-          onClick={resetZoom}
-          style={{
-            width: "60px",
-
-            height: "40px",
-
-            border: "none",
-
-            borderTop:
-              "1px solid rgba(255,255,255,0.5)",
-
-            borderBottom:
-              "1px solid rgba(255,255,255,0.5)",
-
-            background:
-              "rgba(170,200,225,0.95)",
-
-            color: "white",
-
-            fontSize: "12px",
-
-            fontWeight: 700,
-
-            cursor: "pointer",
-          }}
+          className="zoom-reset"
+          aria-label="Reset zoom"
+          onClick={() => setZoom(1)}
         >
-          {Math.round(
-            zoom * 100
-          )}
-          %
+          {Math.round(zoom * 100)}%
         </button>
 
-        {/* ZOOM OUT */}
-
         <button
           type="button"
-          onClick={zoomOut}
           aria-label="Zoom out"
-          style={{
-            width: "60px",
-
-            height: "60px",
-
-            border: "none",
-
-            background:
-              "rgba(190,215,235,0.95)",
-
-            color: "white",
-
-            fontSize: "34px",
-
-            cursor: "pointer",
-          }}
+          onClick={() => setZoom((value) => Math.max(value - 0.1, 0.6))}
         >
           −
         </button>
       </div>
 
-      {/* ======================================================
-          ERROR
-          ====================================================== */}
+      <style jsx>{`
+        .map-container {
+          position: relative;
+          width: 100%;
+          max-width: 1661px;
+          margin: 0 auto;
+          border-radius: 24px;
+          overflow: hidden;
+          background: #4d86b2;
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
 
-      {error && (
-        <div
-          style={{
-            position: "absolute",
+        .map-viewport {
+          width: 100%;
+          overflow: hidden;
+        }
 
-            top: "24px",
+        .map-content {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 1661 / 934;
+          transform-origin: center;
+          transition: transform 0.2s ease;
+        }
 
-            right: "24px",
+        img,
+        svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
 
-            padding:
-              "12px 18px",
+        img {
+          object-fit: contain;
+          user-select: none;
+          pointer-events: none;
+        }
 
-            borderRadius: "12px",
+        .zoom-controls {
+          position: absolute;
+          left: 24px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          flex-direction: column;
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+          z-index: 2;
+        }
 
-            background:
-              "rgba(180,40,40,0.95)",
+        .zoom-controls button {
+          width: 60px;
+          height: 60px;
+          border: 0;
+          background: rgba(190, 215, 235, 0.95);
+          color: white;
+          font-size: 34px;
+          cursor: pointer;
+        }
 
-            color: "white",
-
-            fontSize: "14px",
-
-            fontWeight: 700,
-
-            zIndex: 30,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* ======================================================
-          PATH INFORMATION
-          ====================================================== */}
-
-      {path.length > 0 && (
-        <div
-          style={{
-            position: "absolute",
-
-            left: "24px",
-
-            bottom: "24px",
-
-            width: "270px",
-
-            padding: "18px",
-
-            borderRadius: "18px",
-
-            background:
-              "rgba(35,70,90,0.94)",
-
-            color: "white",
-
-            boxShadow:
-              "0 8px 25px rgba(0,0,0,0.25)",
-
-            zIndex: 20,
-          }}
-        >
-          <div
-            style={{
-              fontSize: "19px",
-
-              fontWeight: 800,
-
-              marginBottom:
-                "12px",
-            }}
-          >
-            Path Information
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              marginBottom: "7px",
-            }}
-          >
-            <span>
-              Start
-            </span>
-
-            <strong
-              style={{
-                color: "#4ade80",
-              }}
-            >
-              {startCity}
-            </strong>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              marginBottom: "7px",
-            }}
-          >
-            <span>
-              End
-            </span>
-
-            <strong
-              style={{
-                color: "#f87171",
-              }}
-            >
-              {goalCity}
-            </strong>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              marginBottom:
-                "14px",
-            }}
-          >
-            <span>
-              Total
-            </span>
-
-            <strong>
-              {totalDistance} km
-            </strong>
-          </div>
-
-          <div
-            style={{
-              fontSize: "14px",
-
-              fontWeight: 800,
-
-              marginBottom: "7px",
-            }}
-          >
-            Path
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              flexDirection:
-                "column",
-
-              gap: "5px",
-            }}
-          >
-            {path.map(
-              (
-                city,
-                index
-              ) => (
-                <div
-                  key={`${city}-${index}`}
-                  style={{
-                    display:
-                      "flex",
-
-                    alignItems:
-                      "center",
-
-                    gap: "8px",
-
-                    fontSize:
-                      "13px",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: "8px",
-
-                      height: "8px",
-
-                      borderRadius:
-                        "50%",
-
-                      background:
-                        city ===
-                        startCity
-                          ? "#22c55e"
-                          : city ===
-                            goalCity
-                          ? "#ef4444"
-                          : "#ffcf45",
-                    }}
-                  />
-
-                  <span>
-                    {index + 1}.{" "}
-                    {city}
-                  </span>
-                </div>
-              )
-            )}
-          </div>
-        </div>
-      )}
+        .zoom-controls .zoom-reset {
+          height: 40px;
+          background: rgba(170, 200, 225, 0.95);
+          font-size: 12px;
+          font-weight: 700;
+        }
+      `}</style>
     </div>
   );
 }

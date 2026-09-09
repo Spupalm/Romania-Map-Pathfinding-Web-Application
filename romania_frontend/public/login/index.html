@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="styles.css" rel="stylesheet">
+
+    <title>Login</title>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- BACK TO HOME -->
+        <a href="/main_page" class="back-home">
+            ← Back to Home
+        </a>
+
+        <form class="form-field" id="login-form">
+
+            <h1 class="heading">
+                USER LOGIN
+            </h1>
+
+            <p class="p-text">
+                Welcome to Romanian Map
+            </p>
+
+
+            <!-- INPUT FIELD SECTION -->
+            <div class="input-field-box">
+
+                <label for="username">
+                    Username
+                </label>
+
+                <input
+                    class="input-field"
+                    type="text"
+                    id="username"
+                    name="username"
+                    placeholder="Your Username"
+                    required
+                >
+
+
+                <label for="password">
+                    Password
+                </label>
+
+                <input
+                    class="input-field"
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Your password"
+                    required
+                >
+
+            </div>
+
+
+            <!-- LOGIN BUTTON -->
+            <button
+                class="btn"
+                type="submit"
+                id="submit"
+                name="submit"
+            >
+                LOGIN
+            </button>
+
+
+            <!-- GMAIL ICON -->
+            <div class="img-container">
+
+                <img
+                    src="https://images.icon-icons.com/2642/PNG/512/google_mail_gmail_logo_icon_159346.png"
+                    alt="Google Mail"
+                >
+
+            </div>
+
+
+            <!-- REGISTER LINK -->
+            <p class="to-register">
+
+                Don't have an account?
+
+                <a href="/register/index.html">
+                    Register
+                </a>
+
+            </p>
+
+        </form>
+
+    </div>
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async function (event) {
+            event.preventDefault();
+    
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+    
+            try {
+                const response = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+    
+                const data = await response.json();
+    
+                if (!response.ok) {
+                    alert(data.error || "Login failed");
+                    return;
+                }
+    
+                alert("Login successful!");
+    
+                window.location.href = "/main_page";
+            } catch (error) {
+                console.error(error);
+                alert("Could not connect to the server.");
+            }
+        });
+    </script>
+</body>
+
+</html>
