@@ -22,7 +22,7 @@ import Map, {
   type CityName,
   type MapRoute,
 } from "../../components/Map";
-
+import ProfileAvatar from "@/components/ProfileAvatar";
 /* ============================================================
    CONFIGURATION
    ============================================================ */

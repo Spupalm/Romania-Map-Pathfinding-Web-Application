@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Jaro } from "next/font/google";
 import { Jockey_One } from "next/font/google";
+import ProfileAvatar from "@/components/ProfileAvatar";
 
 const jaro = Jaro({
   subsets: ["latin"],
@@ -535,14 +536,7 @@ export default function Navbar({
     e.currentTarget.style.transform = "scale(1)";
   }}
 >
-  <span
-    style={{
-      fontSize: 20,
-      lineHeight: 1,
-    }}
-  >
-    👤
-  </span>
+  <ProfileAvatar />
 </div>
     </div>
        

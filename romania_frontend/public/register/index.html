@@ -1,205 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <link
-        href="styles.css"
-        rel="stylesheet"
-    >
+    <link href="styles.css" rel="stylesheet">
 
     <title>Registration Page</title>
 
+    <style>
+        .google-login {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            background: #fff;
+            color: #202124;
+            text-decoration: none;
+            font: inherit;
+        }
+
+        .google-login:hover {
+            background: #f3f4f6;
+        }
+
+        .google-login:focus-visible {
+            outline: 3px solid #4285f4;
+            outline-offset: 3px;
+        }
+
+        .google-login img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+
+        .auth-message {
+            text-align: center;
+            color: #b91c1c;
+        }
+    </style>
 </head>
 
 <body>
-
     <div class="main-container">
-
-
-        <!-- =====================================================
-             LEFT CONTAINER
-             ===================================================== -->
-
         <div class="title-container">
-
-            <h1 class="page-title">
-                Romanian Map
-            </h1>
-
+            <h1 class="page-title">Romanian Map</h1>
         </div>
 
-
-        <!-- =====================================================
-             RIGHT CONTAINER
-             ===================================================== -->
-
         <div class="container">
-
-
-            <!-- BACK TO HOME -->
-
             <a href="/main_page" class="back-home">
                 ← Back to Home
             </a>
 
-
             <form class="form-field" id="register-form">
-
-
-                <!-- TITLE -->
-
-                <h1 class="heading">
-                    Create an account
-                </h1>
-
+                <h1 class="heading">Create an account</h1>
 
                 <p class="p-text">
                     The algorithm searches for a path from
                     the start city to the goal city
                 </p>
 
-
-                <!-- =================================================
-                     INPUT FIELDS
-                     ================================================= -->
-
                 <div class="input-field-box">
-
-
-                    <!-- USERNAME -->
-
-                    <label for="username">
-                        Username
-                    </label>
-
+                    <label for="username">Username</label>
                     <input
                         class="input-field"
                         type="text"
                         id="username"
                         name="username"
                         placeholder="Your Username"
+                        autocomplete="username"
+                        pattern="[a-zA-Z0-9_]+"
+                        title="Use letters, numbers, and underscores only."
                         required
                     >
 
-
-                    <!-- EMAIL -->
-
-                    <label for="email">
-                        Email
-                    </label>
-
+                    <label for="email">Email</label>
                     <input
                         class="input-field"
                         type="email"
                         id="email"
                         name="email"
                         placeholder="Your email"
+                        autocomplete="email"
                         required
                     >
 
-
-                    <!-- PASSWORD -->
-
-                    <label for="password">
-                        Password
-                    </label>
-
+                    <label for="password">Password</label>
                     <input
                         class="input-field"
                         type="password"
                         id="password"
                         name="password"
                         placeholder="Your Password"
+                        autocomplete="new-password"
+                        minlength="6"
                         required
                     >
-
-
-                    <!-- CONFIRM PASSWORD -->
 
                     <label for="confirm-password">
                         Confirm Password
                     </label>
-
                     <input
                         class="input-field"
                         type="password"
                         id="confirm-password"
                         name="confirm-password"
-                        placeholder="Your Password"
+                        placeholder="Confirm Your Password"
+                        autocomplete="new-password"
+                        minlength="6"
                         required
                     >
-
                 </div>
 
-
-                <!-- =================================================
-                     CREATE ACCOUNT BUTTON
-                     ================================================= -->
+                <p
+                    id="auth-message"
+                    class="auth-message"
+                    role="alert"
+                    hidden
+                ></p>
 
                 <button
                     class="btn"
                     type="submit"
+                    id="register-submit"
                 >
                     Create an Account
                 </button>
 
-
-                <!-- =================================================
-                     GMAIL ICON
-                     ================================================= -->
-
                 <div class="img-container">
-
-                    <img
-                        src="https://images.icon-icons.com/2642/PNG/512/google_mail_gmail_logo_icon_159346.png"
-                        alt="Google Mail"
-                    >
-
+                    <a href="/api/auth/google" class="google-login">
+                        <img
+                            src="https://images.icon-icons.com/2642/PNG/512/google_mail_gmail_logo_icon_159346.png"
+                            alt=""
+                            width="28"
+                            height="28"
+                        >
+                        <span>Continue with Google</span>
+                    </a>
                 </div>
 
-
-                <!-- =================================================
-                     LOGIN LINK
-                     ================================================= -->
-
                 <p class="to-login">
-
                     Already have an account?
-
-                    <a href="/login/index.html">
-                        Login
-                    </a>
-
+                    <a href="/login/index.html">Login</a>
                 </p>
-
-
             </form>
-
         </div>
-
     </div>
+
     <script>
-        document.getElementById("register-form").addEventListener("submit", async function (event) {
+        const form = document.getElementById("register-form");
+        const submitButton =
+            document.getElementById("register-submit");
+        const message = document.getElementById("auth-message");
+
+        function showError(text) {
+            message.textContent = text;
+            message.hidden = false;
+        }
+
+        form.addEventListener("submit", async function (event) {
             event.preventDefault();
-    
-            const username = document.getElementById("username").value;
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            const confirmPassword = document.getElementById("confirm-password").value;
-    
+            message.hidden = true;
+
+            const username =
+                document.getElementById("username").value.trim();
+            const email =
+                document.getElementById("email").value.trim();
+            const password =
+                document.getElementById("password").value;
+            const confirmPassword =
+                document.getElementById("confirm-password").value;
+
             if (password !== confirmPassword) {
-                alert("Passwords do not match.");
+                showError("Passwords do not match.");
                 return;
             }
-    
+
+            submitButton.disabled = true;
+            submitButton.textContent = "Creating account...";
+
             try {
                 const response = await fetch("/api/auth/register", {
                     method: "POST",
@@ -207,28 +190,33 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        username: username,
-                        email: email,
-                        password: password
+                        username,
+                        email,
+                        password
                     })
                 });
-    
+
                 const data = await response.json();
-    
+
                 if (!response.ok) {
-                    alert(data.error || "Registration failed");
+                    showError(data.error || "Registration failed.");
                     return;
                 }
-    
-                alert("Account created successfully!");
-    
-                window.location.href = "/login/index.html";
+
+                alert(
+                    "Registration submitted. If email confirmation " +
+                    "is required, check your inbox before logging in."
+                );
+
+                window.location.assign("/login/index.html");
             } catch (error) {
                 console.error(error);
-                alert("Could not connect to the server.");
+                showError("Could not connect to the server.");
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = "Create an Account";
             }
         });
     </script>
 </body>
-
 </html>

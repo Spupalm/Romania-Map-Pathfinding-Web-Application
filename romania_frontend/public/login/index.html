@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,132 +7,168 @@
     <link href="styles.css" rel="stylesheet">
 
     <title>Login</title>
+
+    <style>
+        .google-login {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            background: #fff;
+            color: #202124;
+            text-decoration: none;
+            font: inherit;
+        }
+
+        .google-login:hover {
+            background: #f3f4f6;
+        }
+
+        .google-login:focus-visible {
+            outline: 3px solid #4285f4;
+            outline-offset: 3px;
+        }
+
+        .google-login img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+
+        .auth-message {
+            text-align: center;
+            color: #b91c1c;
+        }
+    </style>
 </head>
 
 <body>
-
     <div class="container">
-
-        <!-- BACK TO HOME -->
         <a href="/main_page" class="back-home">
             ← Back to Home
         </a>
 
         <form class="form-field" id="login-form">
-
-            <h1 class="heading">
-                USER LOGIN
-            </h1>
+            <h1 class="heading">USER LOGIN</h1>
 
             <p class="p-text">
                 Welcome to Romanian Map
             </p>
 
-
-            <!-- INPUT FIELD SECTION -->
             <div class="input-field-box">
-
-                <label for="username">
-                    Username
-                </label>
-
+                <label for="username">Username</label>
                 <input
                     class="input-field"
                     type="text"
                     id="username"
                     name="username"
                     placeholder="Your Username"
+                    autocomplete="username"
                     required
                 >
 
-
-                <label for="password">
-                    Password
-                </label>
-
+                <label for="password">Password</label>
                 <input
                     class="input-field"
                     type="password"
                     id="password"
                     name="password"
                     placeholder="Your password"
+                    autocomplete="current-password"
                     required
                 >
-
             </div>
 
+            <p
+                id="auth-message"
+                class="auth-message"
+                role="alert"
+                hidden
+            ></p>
 
-            <!-- LOGIN BUTTON -->
             <button
                 class="btn"
                 type="submit"
-                id="submit"
-                name="submit"
+                id="login-submit"
             >
                 LOGIN
             </button>
 
-
-            <!-- GMAIL ICON -->
             <div class="img-container">
-
-                <img
-                    src="https://images.icon-icons.com/2642/PNG/512/google_mail_gmail_logo_icon_159346.png"
-                    alt="Google Mail"
-                >
-
+                <a href="/api/auth/google" class="google-login">
+                    <img
+                        src="https://images.icon-icons.com/2642/PNG/512/google_mail_gmail_logo_icon_159346.png"
+                        alt=""
+                        width="28"
+                        height="28"
+                    >
+                    <span>Continue with Google</span>
+                </a>
             </div>
 
-
-            <!-- REGISTER LINK -->
             <p class="to-register">
-
                 Don't have an account?
-
-                <a href="/register/index.html">
-                    Register
-                </a>
-
+                <a href="/register/index.html">Register</a>
             </p>
-
         </form>
-
     </div>
+
     <script>
-        document.getElementById("login-form").addEventListener("submit", async function (event) {
+        const form = document.getElementById("login-form");
+        const submitButton = document.getElementById("login-submit");
+        const message = document.getElementById("auth-message");
+
+        function showError(text) {
+            message.textContent = text;
+            message.hidden = false;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.has("error")) {
+            showError("Google sign-in failed. Please try again.");
+        }
+
+        form.addEventListener("submit", async function (event) {
             event.preventDefault();
-    
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-    
+
+            message.hidden = true;
+            submitButton.disabled = true;
+            submitButton.textContent = "Logging in...";
+
+            const username =
+                document.getElementById("username").value.trim();
+            const password =
+                document.getElementById("password").value;
+
             try {
                 const response = await fetch("/api/auth/login", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    })
+                    body: JSON.stringify({ username, password })
                 });
-    
+
                 const data = await response.json();
-    
+
                 if (!response.ok) {
-                    alert(data.error || "Login failed");
+                    showError(data.error || "Login failed.");
                     return;
                 }
-    
-                alert("Login successful!");
-    
-                window.location.href = "/main_page";
+
+                window.location.assign("/main_page");
             } catch (error) {
                 console.error(error);
-                alert("Could not connect to the server.");
+                showError("Could not connect to the server.");
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = "LOGIN";
             }
         });
     </script>
 </body>
-
 </html>
