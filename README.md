@@ -1,101 +1,197 @@
 # Romania Map Pathfinding Web Application
 
-The Romania Map Pathfinding Web Application allows users to select any start and destination cities, then compares one blind search algorithm and one custom heuristic search algorithm. The system evaluates execution time, memory usage, and path cost through an interactive, user-friendly web interface.
+An interactive web application for exploring routes between cities in Romania and comparing the performance of search algorithms. Users can choose a starting city and a destination, view the calculated route, and compare path cost, execution time, and memory usage.
 
-## Tech Stack
+The project uses a **Python FastAPI backend**, a **Next.js frontend**, and **Supabase** for authentication and saved route data.
 
-- **Backend:** Python (FastAPI)
-- **Frontend:** Next.js / React (TypeScript)
+## Features
 
-## Getting Started (first time setup)
+- **Interactive Romania map:** Select a starting city and destination and visualize the route.
+- **Algorithm comparison:** Compare a blind search algorithm with a custom heuristic search algorithm.
+- **Performance results:** Review path cost, execution time, and memory usage.
+- **User accounts:** Register and log in through the web interface.
+- **Route history:** Save completed runs and review route details and results for the signed-in user.
 
-If you're opening this project for the first time, do this first:
+## Technology Stack
+
+| Component | Technology | Purpose |
+| --- | --- | --- |
+| Frontend | Next.js, React, TypeScript | Pages, map visualization, and user interaction |
+| Backend | Python, FastAPI | Pathfinding calculations and performance results |
+| Authentication and database | Supabase | User accounts, profiles, and saved routes |
+| Frontend dependencies | npm | Install packages and run frontend scripts |
+
+## Project Structure
+
+| Path | Description |
+| --- | --- |
+| `main.py` | Python backend entry point |
+| `requirements.txt` | Python dependencies referenced by the backend setup |
+| `romania_frontend/` | Main Next.js application |
+| `romania_frontend/app/` | Application pages and API routes |
+| `romania_frontend/components/` | Reusable interface components |
+| `romania_frontend/lib/` | Shared utilities and integration helpers |
+| `romania_frontend/public/` | Static assets, including HTML login and registration pages |
+| `romania_frontend/package.json` | Frontend dependencies and npm scripts |
+| `romania_frontend/.env.local` | Local frontend configuration; do not commit |
+| `supabase/migrations/` | SQL migrations for saved routes and profiles |
+| `.env` | Local backend configuration; do not commit |
+| `.venv/` | Local Python virtual environment |
+
+`node_modules/` and `.next/` are generated locally when installing dependencies and running or building the frontend.
+
+## Prerequisites
+
+Install the following before starting:
+
+- Git
+- Python 3 and pip, using a version compatible with the backend dependencies
+- Node.js and npm, using a version compatible with `romania_frontend/package.json`
+- Access to the project's Supabase configuration, or a Supabase project of your own
+
+> These instructions follow the existing project README and the current folder structure. Use the actual source configuration for environment variable names and the backend port; neither is specified here because those configuration files were not supplied for this documentation update.
+
+## First-Time Setup
+
+### 1. Clone the repository
 
 ```bash
-cd ~/Desktop
 git clone https://github.com/Spupalm/Romania-Map-Pathfinding-Web-Application.git
 cd Romania-Map-Pathfinding-Web-Application
 ```
 
-### Environment variables
+If you already have the repository, open its root folder instead. This is the folder containing `main.py` and `romania_frontend`.
 
-`.env` is **not** included in this repo — it's shared separately in Discord. Add it to the project root before running the backend.
+### 2. Set up the Python environment
 
-The original `romania_frontend` is kept unchanged. Authentication and saved-route
-testing live in the separate `route_saving_test_frontend` application. Copy
-`route_saving_test_frontend/.env.example` to
-`route_saving_test_frontend/.env.local` and fill in the Supabase URL and
-publishable key.
-Then run `supabase/migrations/202609030001_create_saved_routes.sql` in the
-Supabase SQL editor (or with the Supabase CLI). The migration creates the table,
-indexes, and Row Level Security policies that isolate every user's records.
+From the project root, run the commands for your operating system.
 
-### Install dependencies
+**macOS / Linux**
 
-**Backend:**
 ```bash
-python -m venv .venv
-source .venv/bin/activate      # on Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-**Original frontend:**
+**Windows PowerShell**
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+If `.venv` already exists, activate it and install the dependencies without recreating it. If `requirements.txt` is missing, obtain the project's dependency file before continuing.
+
+### 3. Install frontend dependencies
+
+From the project root:
+
 ```bash
 cd romania_frontend
-npm install                    # or bun install
-```
-
-**Route Saving test frontend:**
-```bash
-cd route_saving_test_frontend
 npm install
+cd ..
 ```
 
-## Running the Project
+### 4. Configure environment variables
 
-You'll need two terminals running at the same time — one for the backend, one for the frontend.
+Obtain the development configuration from the project team. The previous project instructions specify that the backend `.env` is shared separately through the team's Discord.
 
-**1. Start the backend** (from the project root):
+Place the configuration files at these locations:
+
+| File | Configuration |
+| --- | --- |
+| `.env` at the project root | Backend environment variables |
+| `romania_frontend/.env.local` | Frontend environment variables, including the Supabase configuration required by the application |
+
+Use the variable names expected by the source code. If the repository provides an example environment file, copy it to the corresponding local filename and fill in the values.
+
+Make sure the frontend's configured API address matches the address used by the running backend. Keep private keys and secrets out of source control and browser-exposed variables. Restart the affected development server after changing an environment file.
+
+### 5. Set up the Supabase database
+
+In the intended Supabase project, open the SQL Editor and apply any migrations that have not already been applied, in filename order:
+
+1. Run `supabase/migrations/202609030001_create_saved_routes.sql`.
+2. Run the profiles migration whose filename begins with `202609060001_create_profiles`.
+
+Use the complete SQL files from the repository, including their policies and any supporting database objects. The saved-routes migration sets up the storage and Row Level Security policies used to isolate users' route records.
+
+If you are using the team's existing Supabase project, first check which migrations have already been applied.
+
+## Run the Application
+
+Keep **two terminals open**: one for the backend and one for the frontend.
+
+### Terminal 1 — Backend
+
+Open the project root and activate the Python environment.
+
+**macOS / Linux**
+
 ```bash
+source .venv/bin/activate
 python main.py
 ```
 
-**2a. Start the original frontend** (in a separate terminal):
+**Windows PowerShell**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python main.py
+```
+
+Keep this terminal running. Check its output for the backend address and any startup errors.
+
+### Terminal 2 — Frontend
+
+Open another terminal at the project root:
+
 ```bash
 cd romania_frontend
 npm run dev
 ```
 
-**2b. Or start the Route Saving test frontend instead:**
-```bash
-cd route_saving_test_frontend
-npm run dev
+Open the URL printed in the frontend terminal, typically:
+
+```text
+http://localhost:3000
 ```
 
-Run only one frontend at a time unless you deliberately assign different ports.
+Use the application's **Back to Home** link or visit `/main_page` to open the main page.
 
-Then open the URL shown in the frontend terminal (typically `http://localhost:3000`) in your browser.
+To stop the application, press `Ctrl+C` in each terminal.
 
-## Project Structure
+## Using the Application
 
-```
-Romania-Map-Pathfinding-Web-Application/
-├── main.py                # FastAPI backend entry point
-├── requirements.txt        # Python dependencies
-├── romania_frontend/       # Original Next.js frontend (unchanged)
-│   ├── app/
-│   ├── components/
-│   └── ...
-├── route_saving_test_frontend/ # Isolated Route Saving test application
-├── supabase/migrations/    # saved_routes database migration
-└── .env                    # Not tracked in git — shared via Discord
-```
+1. Open the frontend in your browser.
+2. Register an account or log in to use account-related features.
+3. Choose a starting city and a destination.
+4. Select an available algorithm or comparison option.
+5. Run the calculation and review the displayed route and results.
+6. Compare path cost, execution time, and memory usage.
+7. Save a completed run while signed in, then use the history page to review it.
 
-## Features
+## Troubleshooting
 
-- Select any start and destination city on an interactive map of Romania
-- Compare a blind search algorithm against a custom heuristic search algorithm
-- View execution time, memory usage, and path cost side by side
-- The isolated test frontend can save a completed run for the signed-in user
-- The isolated test frontend can reload route configuration, ordered workflow
-  steps, algorithm, path cost, execution time, and peak Python memory
+| Problem | What to check |
+| --- | --- |
+| `next: command not found` | Run `npm install` inside `romania_frontend`, then retry `npm run dev`. |
+| npm cannot find `package.json` | Make sure the terminal is inside `romania_frontend`. |
+| Python reports a missing module | Activate `.venv` and run `python -m pip install -r requirements.txt` from the project root. |
+| `python` is not found on macOS | Create the environment with `python3`, then activate it before running the backend. |
+| `Failed to fetch` during a calculation | Check that the backend is running, the frontend API address is correct, and the backend permits the frontend origin if requests are cross-origin. |
+| Login or registration fails | Check the Supabase configuration and the error returned by the authentication API. |
+| Saving or loading history fails | Confirm that the user is signed in, the migrations are applied, and the relevant database policies allow the operation. |
+| The frontend uses a different port | Open the URL printed by Next.js and update any origin-dependent configuration if required. |
+| Environment changes have no effect | Restart the backend or frontend after editing its environment file. |
+| Clicking the Google icon does nothing | The supplied HTML contains only an image. Google OAuth must be connected and configured before Google sign-in is available. |
+
+## Development Notes
+
+- Run the main frontend from `romania_frontend`; the older instructions for `route_saving_test_frontend` are not part of this setup.
+- Keep both development servers running while testing pathfinding features.
+- Commit dependency manifests and database migrations so teammates can reproduce the setup.
+- Do not commit `.env`, `.env.local`, `.venv/`, `node_modules/`, or `.next/`.
+- Use the scripts listed in `romania_frontend/package.json` for any additional build or validation commands.
