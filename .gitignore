@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Node / Next.js (frontend has its own .gitignore too)
+node_modules/
+.next/
+out/
+
+# Editor / OS
+*.log

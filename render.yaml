@@ -1,0 +1,17 @@
+# Render Blueprint for the FastAPI backend.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy by connecting this repo in the Render dashboard ("New +" -> "Blueprint")
+# or by pointing a new Web Service at the build/start commands below.
+services:
+  - type: web
+    name: romania-pathfinding-api
+    runtime: python
+    plan: free
+    # The backend lives at the repository root (main.py / requirements.txt).
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    # Render sets $PORT; bind to 0.0.0.0 so the service is publicly reachable.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /docs
+    autoDeploy: true

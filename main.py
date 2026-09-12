@@ -522,5 +522,12 @@ def run_search(req: SearchRequest):
     }
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+
+    # Hosts such as Render/Railway inject the port to bind via $PORT and require
+    # binding to 0.0.0.0 so the service is reachable. Fall back to localhost:8000
+    # for local development.
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
